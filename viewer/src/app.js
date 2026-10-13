@@ -476,7 +476,8 @@ const state = {
   wire: false,
   spin: false,
   grid: store.get('grid', '1') === '1',
-  current: null, // { entry, parts, textures, pixelArt, doubleSide }
+  current: null, // { car, parts, textures, pixelArt, doubleSide }
+  cars: new Map(),
   variant: '',
   texList: [], // загруженные THREE.Texture по индексу
   materials: [],
@@ -649,38 +650,67 @@ function fitCamera() {
 const MODEL_EXT = new Set(['obj', 'geo.json', 'json', 'bbmodel']);
 let loadToken = 0;
 
-async function openModel(entry, keepCamera = false) {
+// Один файл модели -> { parts, textures, pixelArt, doubleSide }
+async function loadFile(entry) {
+  const ext = extOf(entry.path);
+  const text = await Files.text(entry);
+  if (ext === 'obj') {
+    let mtl = new Map();
+    const mtllib = /^mtllib\s+(.+)$/m.exec(text);
+    const mtlEntry = Files.find(dirOf(entry.path) + (mtllib ? mtllib[1].trim() : baseOf(entry.path).replace(/\.obj$/i, '.mtl')))
+      || Files.find(entry.path.replace(/\.obj$/i, '.mtl'));
+    if (mtlEntry) mtl = parseMTL(await Files.text(mtlEntry));
+    const r = parseOBJ(text, mtl, entry.path);
+    return { parts: r.parts, textures: r.textures, pixelArt: false, doubleSide: true };
+  }
+  if (ext === 'bbmodel') {
+    const r = parseBBModel(JSON.parse(text));
+    return { parts: r.parts, textures: r.textures, pixelArt: true, doubleSide: false };
+  }
+  const geos = listGeometries(JSON.parse(text));
+  if (!geos.length) throw new Error('В файле нет геометрии Bedrock');
+  // текстура: png с тем же именем, иначе первая картинка в папке
+  const stem = baseOf(entry.path).replace(/(\.geo)?\.json$/i, '');
+  const imgs = Files.paths().filter((p) => /\.(png|jpe?g)$/i.test(p) && dirOf(p) === dirOf(entry.path));
+  const pick = imgs.find((p) => baseOf(p).toLowerCase().startsWith(stem.toLowerCase())) || imgs[0] || null;
+  return { parts: parseGeo(geos[0]), textures: [{ key: 'geo:' + entry.path, label: pick ? baseOf(pick) : 'нет текстуры', mapPath: pick }], pixelArt: true, doubleSide: false };
+}
+
+// Склеиваем файлы вагона (bg + fg и т.п.) в одну модель
+function mergeModels(car, loaded) {
+  const textures = [];
+  const texIndex = new Map();
+  const parts = [];
+  loaded.forEach((m, fi) => {
+    const file = car.files[fi];
+    const remap = m.textures.map((t) => {
+      if (!texIndex.has(t.key)) { texIndex.set(t.key, textures.length); textures.push(t); }
+      return texIndex.get(t.key);
+    });
+    for (const p of m.parts) {
+      const chunks = new Map();
+      for (const [ti, c] of p.chunks) chunks.set(remap[ti], c);
+      parts.push({ ...p, chunks, file: file.tag, name: car.files.length > 1 ? `${file.tag}: ${p.name}` : p.name });
+    }
+  });
+  return {
+    parts, textures,
+    pixelArt: loaded.every((m) => m.pixelArt),
+    doubleSide: loaded.some((m) => m.doubleSide),
+  };
+}
+
+async function openModel(car, keepCamera = false) {
   const token = ++loadToken;
   const t0 = performance.now();
-  showBusy(`Загружаю ${baseOf(entry.path)}…`);
+  showBusy(`Загружаю ${car.label}…`);
   await new Promise((r) => setTimeout(r, 20)); // даём нарисоваться индикатору
   try {
-    const ext = extOf(entry.path);
-    const text = await Files.text(entry);
-    let model;
-    if (ext === 'obj') {
-      let mtl = new Map();
-      const mtllib = /^mtllib\s+(.+)$/m.exec(text);
-      const mtlEntry = Files.find(dirOf(entry.path) + (mtllib ? mtllib[1].trim() : baseOf(entry.path).replace(/\.obj$/i, '.mtl')))
-        || Files.find(entry.path.replace(/\.obj$/i, '.mtl'));
-      if (mtlEntry) mtl = parseMTL(await Files.text(mtlEntry));
-      const r = parseOBJ(text, mtl, entry.path);
-      model = { parts: r.parts, textures: r.textures, pixelArt: false, doubleSide: true };
-    } else if (ext === 'bbmodel') {
-      const r = parseBBModel(JSON.parse(text));
-      model = { parts: r.parts, textures: r.textures, pixelArt: true, doubleSide: false };
-    } else {
-      const geos = listGeometries(JSON.parse(text));
-      if (!geos.length) throw new Error('В файле нет геометрии Bedrock');
-      const geo = geos[0];
-      // текстура: png с тем же именем, иначе первая картинка в папке
-      const stem = baseOf(entry.path).replace(/(\.geo)?\.json$/i, '');
-      const imgs = Files.paths().filter((p) => /\.(png|jpe?g)$/i.test(p) && dirOf(p) === dirOf(entry.path));
-      const pick = imgs.find((p) => baseOf(p).toLowerCase().startsWith(stem.toLowerCase())) || imgs[0] || null;
-      model = { parts: parseGeo(geo), textures: [{ key: 'geo', label: pick ? baseOf(pick) : 'нет текстуры', mapPath: pick }], pixelArt: true, doubleSide: false };
-    }
+    const loaded = [];
+    for (const f of car.files) loaded.push(await loadFile(f.entry));
     if (token !== loadToken) return;
-    model.entry = entry;
+    const model = mergeModels(car, loaded);
+    model.car = car;
     state.current = model;
 
     // окраски (подпапки с теми же именами текстур)
@@ -694,13 +724,14 @@ async function openModel(entry, keepCamera = false) {
     rebuild();
     if (!keepCamera) fitCamera();
     fillParts();
-    $('modelName').textContent = baseOf(entry.path);
+    fillFileChips();
+    $('modelName').textContent = car.label;
     state.loadMs = Math.round(performance.now() - t0);
     updateStats();
     hideBusy();
   } catch (err) {
     console.error(err);
-    if (token === loadToken) showError(`Не получилось открыть ${baseOf(entry.path)}: ${err.message || err}`);
+    if (token === loadToken) showError(`Не получилось открыть ${car.label}: ${err.message || err}`);
   }
 }
 
@@ -748,39 +779,65 @@ function seriesOf(path) {
   return m ? m[1] : b;
 }
 
-function modelEntries() {
-  return Files.paths()
+// Показываем только эту серию (для .obj). Пустая строка — показывать всё.
+const ONLY_SERIES = '81-540';
+
+// «81-540.1bg» и «81-540.1fg» — куски одного вагона «81-540.1»
+const PIECE_NAMES = { bg: 'кузов', fg: 'детали', f: 'перед', r: 'зад' };
+function carKeyOf(path) {
+  if (extOf(path) !== 'obj') return { key: path, tag: baseOf(path) };
+  const stem = path.replace(/\.obj$/i, '');
+  const m = /^(.*\d)(bg|fg|f|r)$/i.exec(stem);
+  return m ? { key: m[1], tag: m[2].toLowerCase() } : { key: stem, tag: baseOf(stem) };
+}
+
+function buildCars() {
+  const cars = new Map();
+  const paths = Files.paths()
     .filter((p) => MODEL_EXT.has(extOf(p)) && !(extOf(p) === 'json' && !/geo|model/i.test(p)))
-    .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true }))
-    .map((p) => Files.get(p));
+    .filter((p) => extOf(p) !== 'obj' || !ONLY_SERIES || baseOf(p).toLowerCase().startsWith(ONLY_SERIES.toLowerCase() + '.'))
+    .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true }));
+  for (const p of paths) {
+    const { key, tag } = carKeyOf(p);
+    if (!cars.has(key)) cars.set(key, { key, files: [] });
+    cars.get(key).files.push({ tag, entry: Files.get(p) });
+  }
+  for (const car of cars.values()) {
+    const name = baseOf(car.key).replace(/\.(bbmodel|json)$/i, '');
+    car.label = car.files.length > 1
+      ? `${name} (${car.files.map((f) => PIECE_NAMES[f.tag] || f.tag).join(' + ')})`
+      : name;
+  }
+  state.cars = cars;
+  return [...cars.values()];
 }
 
 function fillModelList() {
   const sel = $('model');
   const filter = $('search').value.trim().toLowerCase();
-  const entries = modelEntries().filter((e) => !filter || e.path.toLowerCase().includes(filter));
+  const cars = buildCars().filter((c) => !filter || c.label.toLowerCase().includes(filter));
   const prev = sel.value;
   sel.innerHTML = '';
   const groups = new Map();
-  for (const e of entries) {
-    const s = seriesOf(e.path);
+  for (const c of cars) {
+    const s = seriesOf(c.key);
     if (!groups.has(s)) groups.set(s, []);
-    groups.get(s).push(e);
+    groups.get(s).push(c);
   }
   for (const [s, list] of groups) {
     const og = document.createElement('optgroup');
     og.label = s;
-    for (const e of list) {
+    for (const c of list) {
       const o = document.createElement('option');
-      o.value = e.path;
-      o.textContent = e.path.replace(/\.(obj|bbmodel)$/i, '');
+      o.value = c.key;
+      o.textContent = c.label;
       og.appendChild(o);
     }
     sel.appendChild(og);
   }
-  if (entries.some((e) => e.path === prev)) sel.value = prev;
-  $('count').textContent = `${entries.length} моделей`;
-  return entries;
+  if (cars.some((c) => c.key === prev)) sel.value = prev;
+  $('count').textContent = `${cars.length} шт.`;
+  return cars;
 }
 
 function fillVariants(variants) {
@@ -819,6 +876,28 @@ function fillParts() {
     box.appendChild(l);
   }
 }
+// Кнопки «кузов / детали»: включить или выключить целый файл вагона
+function fillFileChips() {
+  const row = $('filesRow');
+  const cur = state.current;
+  row.innerHTML = '';
+  const files = cur && cur.car.files.length > 1 ? cur.car.files : [];
+  $('filesField').hidden = !files.length;
+  for (const f of files) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = `${PIECE_NAMES[f.tag] || f.tag} (${f.tag})`;
+    const mine = () => cur.parts.filter((p) => p.file === f.tag);
+    const sync = () => b.setAttribute('aria-pressed', String(mine().some((p) => p.visible)));
+    sync();
+    b.addEventListener('click', () => {
+      const on = !mine().some((p) => p.visible);
+      mine().forEach((p) => (p.visible = on));
+      sync(); fillParts(); scheduleRebuild();
+    });
+    row.appendChild(b);
+  }
+}
 let rebuildTimer = 0;
 function scheduleRebuild() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(rebuild, 60); }
 
@@ -826,6 +905,7 @@ function setAllParts(v) {
   if (!state.current) return;
   state.current.parts.forEach((p) => (p.visible = v));
   fillParts();
+  fillFileChips();
   rebuild();
 }
 
@@ -834,7 +914,7 @@ function setQuality(q) {
   store.set('quality', q);
   document.querySelectorAll('[data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
   resize();
-  if (state.current) openModel(state.current.entry, true); // перезагружаем текстуры под новый размер
+  if (state.current) openModel(state.current.car, true); // перезагружаем текстуры под новый размер
 }
 
 function toggle(id, key, after) {
@@ -850,7 +930,7 @@ function screenshot() {
     if (!blob) return;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (state.current ? baseOf(state.current.entry.path).replace(/\.\w+$/, '') : 'model') + '.png';
+    a.download = (state.current ? state.current.car.key.replace(/[^\w.-]+/g, '_') : 'model') + '.png';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
@@ -860,29 +940,28 @@ function onPicked(fileList) {
   if (!fileList || !fileList.length) return;
   Files.usePicked(fileList);
   state.variant = '';
-  const entries = fillModelList();
+  const cars = fillModelList();
   $('needFolder').hidden = true;
-  if (entries.length) openFromSelect(entries);
+  if (cars.length) openFromSelect(cars);
   else showError('Среди выбранных файлов нет моделей (.obj, .geo.json, .bbmodel).');
 }
 
-function openFromSelect(entries, preferred) {
+function openFromSelect(cars, preferred) {
   const sel = $('model');
-  if (entries.length) {
-    const def = (preferred && entries.find((e) => e.path === preferred))
-      || entries.find((e) => /81-740fg\.obj$/i.test(e.path)) || entries[0];
-    sel.value = def.path;
+  if (cars.length) {
+    const def = (preferred && cars.find((c) => c.key === preferred)) || cars[0];
+    sel.value = def.key;
   }
-  const e = Files.get(sel.value);
-  if (e) { store.set('last', e.path); openModel(e); }
+  const car = state.cars.get(sel.value);
+  if (car) { store.set('last', car.key); openModel(car); }
 }
 
 // Проверяем, можно ли читать файлы рядом со страницей
 async function canFetchPack() {
   if (location.protocol === 'file:') {
-    try { const r = await fetch(encodePath('81-740fg.mtl')); return r.ok; } catch { return false; }
+    try { const r = await fetch(encodePath('81-540.1bg.mtl')); return r.ok; } catch { return false; }
   }
-  try { const r = await fetch(encodePath('81-740fg.mtl'), { method: 'GET', cache: 'no-store' }); return r.ok; } catch { return false; }
+  try { const r = await fetch(encodePath('81-540.1bg.mtl'), { method: 'GET', cache: 'no-store' }); return r.ok; } catch { return false; }
 }
 
 async function init() {
@@ -923,8 +1002,7 @@ async function init() {
   resize();
   if (await canFetchPack()) {
     Files.useList(PACK_FILES);
-    const entries = fillModelList();
-    openFromSelect(entries, store.get('last', ''));
+    openFromSelect(fillModelList(), store.get('last', ''));
   } else {
     $('needFolder').hidden = false;
     hideBusy();

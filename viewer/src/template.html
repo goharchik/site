@@ -94,10 +94,10 @@ body.drag .drop{display:grid}
   <div class="panel-scroll">
     <label class="field">
       <span>Поиск</span>
-      <input id="search" type="search" placeholder="например 740" autocomplete="off">
+      <input id="search" type="search" placeholder="например 540.7" autocomplete="off">
     </label>
     <label class="field">
-      <span>Модель <b class="muted" id="count"></b></span>
+      <span>Вагон <b class="muted" id="count"></b></span>
       <select id="model"></select>
     </label>
     <label class="field" id="variantRow" hidden>
@@ -123,6 +123,11 @@ body.drag .drop{display:grid}
         <button class="chip" id="btnWire">△ Каркас</button>
         <button class="chip" id="btnShot">📷 Снимок</button>
       </div>
+    </div>
+
+    <div class="field" id="filesField" hidden>
+      <span>Файлы вагона</span>
+      <div class="row" id="filesRow"></div>
     </div>
 
     <details>
