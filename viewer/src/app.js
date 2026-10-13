@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PACK_FILES } from './pack-files.js';
 
 // ============================================================
@@ -65,10 +64,11 @@ const Files = {
     return r.text();
   },
 
-  // Возвращает URL картинки и функцию очистки
-  url(entry) {
-    if (entry.file) { const u = URL.createObjectURL(entry.file); return { url: u, done: () => URL.revokeObjectURL(u) }; }
-    return { url: encodePath(entry.path), done() {} };
+  async blob(entry) {
+    if (entry.file) return entry.file;
+    const r = await fetch(encodePath(entry.path));
+    if (!r.ok) throw new Error(`Не удалось загрузить ${entry.path} (${r.status})`);
+    return r.blob();
   },
 };
 const encodePath = (p) => p.split('/').map(encodeURIComponent).join('/');
@@ -360,69 +360,151 @@ function parseMTL(text) {
   return mats;
 }
 
-function parseOBJ(text, mtl, objPath) {
-  const root = new OBJLoader().parse(text);
-  const texKeys = new Map(); // ключ текстуры -> индекс
-  const textures = [];
-  const texFor = (matName) => {
-    const m = mtl.get(matName);
-    const key = m ? (m.map ? 'map:' + normPath(dirOf(objPath) + m.map).toLowerCase() : 'mat:' + matName) : 'none';
-    if (!texKeys.has(key)) {
-      texKeys.set(key, textures.length);
-      textures.push({
-        key, label: m ? (m.map ? baseOf(m.map) : `цвет ${matName}`) : 'без материала',
-        mapPath: m && m.map ? normPath(dirOf(objPath) + m.map) : null,
-        kd: m ? m.kd : [0.8, 0.8, 0.8], opacity: m ? m.d : 1,
-      });
-    }
-    return texKeys.get(key);
-  };
+// Растущий Float32Array: в 4+ раза экономнее обычного массива чисел
+class Grow {
+  constructor(n = 4096) { this.a = new Float32Array(n); this.n = 0; }
+  need(k) { if (this.n + k > this.a.length) { const b = new Float32Array(Math.max(this.a.length * 2, this.n + k)); b.set(this.a); this.a = b; } }
+  push2(x, y) { this.need(2); this.a[this.n++] = x; this.a[this.n++] = y; }
+  push3(x, y, z) { this.need(3); this.a[this.n++] = x; this.a[this.n++] = y; this.a[this.n++] = z; }
+  done() { const r = this.a.slice(0, this.n); this.a = null; return r; }
+}
 
-  const parts = new Map();
-  root.updateMatrixWorld(true);
-  root.traverse((obj) => {
-    if (!obj.isMesh) return;
-    const g = obj.geometry;
-    const pos = g.attributes.position.array;
-    const uv = g.attributes.uv ? g.attributes.uv.array : null;
-    const nrm = g.attributes.normal ? g.attributes.normal.array : null;
-    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const groups = g.groups.length ? g.groups : [{ start: 0, count: pos.length / 3, materialIndex: 0 }];
-    const name = obj.name || 'без имени';
-    let part = parts.get(name);
-    if (!part) { part = { name, visible: true, chunks: new Map(), tris: 0, _lists: new Map() }; parts.set(name, part); }
-    for (const gr of groups) {
-      const n = Math.min(gr.count, pos.length / 3 - gr.start);
-      if (n <= 0) continue;
-      const ti = texFor((mats[gr.materialIndex] || mats[0]).name);
-      const P = pos.slice(gr.start * 3, (gr.start + n) * 3);
-      const U = uv ? uv.slice(gr.start * 2, (gr.start + n) * 2) : new Float32Array(n * 2);
-      const C = new Float32Array(n * 3);
-      for (let i = 0; i < n; i += 3) {
-        // нормаль из файла, а если её нет — у треугольника
-        for (let k = 0; k < 3 && i + k < n; k++) {
-          const j = (gr.start + i + k) * 3;
-          let s;
-          if (nrm && (nrm[j] || nrm[j + 1] || nrm[j + 2])) s = shadeOf(nrm[j], nrm[j + 1], nrm[j + 2]);
-          else {
-            const a = i * 3;
-            const ux = P[a + 3] - P[a], uy = P[a + 4] - P[a + 1], uz = P[a + 5] - P[a + 2];
-            const vx = P[a + 6] - P[a], vy = P[a + 7] - P[a + 1], vz = P[a + 8] - P[a + 2];
-            s = shadeOf(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-          }
-          C[(i + k) * 3] = C[(i + k) * 3 + 1] = C[(i + k) * 3 + 2] = s;
-        }
-      }
-      if (!part._lists.has(ti)) part._lists.set(ti, []);
-      part._lists.get(ti).push({ pos: P, uv: U, col: C });
-      part.tris += Math.floor(n / 3);
-    }
-  });
-  for (const p of parts.values()) {
-    for (const [ti, list] of p._lists) p.chunks.set(ti, concatChunks(list));
-    delete p._lists;
+// Свой разбор OBJ: файл читается кусочками и сразу пишется в типизированные
+// массивы, поэтому большие модели не съедают память телефона.
+class ObjParser {
+  constructor() {
+    this.V = new Grow(); this.T = new Grow(); this.N = new Grow();
+    this.parts = new Map();
+    this.mats = []; this.matIndex = new Map();
+    this.partName = 'без имени';
+    this.mi = null; this.out = null;
+    this.mtllib = null;
+    this.fv = []; this.ft = []; this.fn = [];
+    this.rest = '';
   }
-  return { parts: [...parts.values()].filter((p) => p.tris > 0), textures };
+  // кусок текста; неполную последнюю строку оставляем до следующего куска
+  feed(chunk, last = false) {
+    const text = this.rest + chunk;
+    let pos = 0;
+    const L = text.length;
+    for (;;) {
+      let end = text.indexOf('\n', pos);
+      if (end < 0) { if (!last) break; end = L; }
+      if (pos >= L) break;
+      this.line(text.slice(pos, end).trim());
+      pos = end + 1;
+    }
+    this.rest = pos < L ? text.slice(pos) : '';
+  }
+  target() {
+    if (this.mi === null) this.useMat('');
+    let part = this.parts.get(this.partName);
+    if (!part) { part = { name: this.partName, visible: true, chunks: new Map(), tris: 0 }; this.parts.set(this.partName, part); }
+    let c = part.chunks.get(this.mi);
+    if (!c) { c = { pos: new Grow(), uv: new Grow(), col: new Grow() }; part.chunks.set(this.mi, c); }
+    this.out = { c, part };
+  }
+  useMat(name) {
+    if (!this.matIndex.has(name)) { this.matIndex.set(name, this.mats.length); this.mats.push(name); }
+    this.mi = this.matIndex.get(name); this.out = null;
+  }
+  line(line) {
+    if (line.length < 2 || line[0] === '#') return;
+    const c0 = line[0], c1 = line[1];
+    if (c0 === 'v' && (c1 === ' ' || c1 === '\t')) {
+      const t = line.split(/\s+/); this.V.push3(+t[1], +t[2], +t[3]);
+    } else if (c0 === 'v' && c1 === 't') {
+      const t = line.split(/\s+/); this.T.push2(+t[1], +(t[2] || 0));
+    } else if (c0 === 'v' && c1 === 'n') {
+      const t = line.split(/\s+/); this.N.push3(+t[1], +t[2], +t[3]);
+    } else if (c0 === 'f' && (c1 === ' ' || c1 === '\t')) {
+      this.face(line);
+    } else if ((c0 === 'o' || c0 === 'g') && (c1 === ' ' || c1 === '\t')) {
+      this.partName = line.slice(2).trim() || 'без имени'; this.out = null;
+    } else if (line.startsWith('usemtl')) {
+      this.useMat(line.slice(6).trim());
+    } else if (line.startsWith('mtllib') && !this.mtllib) {
+      this.mtllib = line.slice(6).trim();
+    }
+  }
+  face(line) {
+    if (!this.out) this.target();
+    const { fv, ft, fn } = this;
+    const idx = (str, len) => { const i = parseInt(str, 10); return i < 0 ? len + i : i - 1; };
+    const t = line.split(/\s+/);
+    fv.length = ft.length = fn.length = 0;
+    const nv = this.V.n / 3, nt = this.T.n / 2, nn = this.N.n / 3;
+    for (let i = 1; i < t.length; i++) {
+      const [a, b, c] = t[i].split('/');
+      fv.push(idx(a, nv)); ft.push(b ? idx(b, nt) : -1); fn.push(c ? idx(c, nn) : -1);
+    }
+    const va = this.V.a, ta = this.T.a, na = this.N.a;
+    const out = this.out;
+    for (let k = 1; k + 1 < fv.length; k++) {
+      // нормаль треугольника — на случай, если в файле нет своих
+      const p0 = fv[0] * 3, p1 = fv[k] * 3, p2 = fv[k + 1] * 3;
+      const ux = va[p1] - va[p0], uy = va[p1 + 1] - va[p0 + 1], uz = va[p1 + 2] - va[p0 + 2];
+      const wx = va[p2] - va[p0], wy = va[p2 + 1] - va[p0 + 1], wz = va[p2 + 2] - va[p0 + 2];
+      const flat = shadeOf(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx);
+      for (const j of [0, k, k + 1]) {
+        const vi = fv[j] * 3;
+        out.c.pos.push3(va[vi], va[vi + 1], va[vi + 2]);
+        const tj = ft[j];
+        if (tj >= 0) out.c.uv.push2(ta[tj * 2], ta[tj * 2 + 1]); else out.c.uv.push2(0, 0);
+        const nj = fn[j];
+        let sh = flat;
+        if (nj >= 0 && (na[nj * 3] || na[nj * 3 + 1] || na[nj * 3 + 2])) sh = shadeOf(na[nj * 3], na[nj * 3 + 1], na[nj * 3 + 2]);
+        out.c.col.push3(sh, sh, sh);
+      }
+      out.part.tris++;
+    }
+  }
+  // Материалы известны только после чтения .mtl — склеиваем одинаковые текстуры
+  finish(mtl, objPath) {
+    this.V = this.T = this.N = null;
+    const textures = [], texKeys = new Map();
+    const remap = this.mats.map((name) => {
+      const m = mtl.get(name);
+      const key = m ? (m.map ? 'map:' + normPath(dirOf(objPath) + m.map).toLowerCase() + '|' + m.kd.join(',') + '|' + m.d : 'mat:' + name) : 'none';
+      if (!texKeys.has(key)) {
+        texKeys.set(key, textures.length);
+        textures.push({
+          key, label: m ? (m.map ? baseOf(m.map) : `цвет ${name}`) : 'без материала',
+          mapPath: m && m.map ? normPath(dirOf(objPath) + m.map) : null,
+          kd: m ? m.kd : [0.8, 0.8, 0.8], opacity: m ? m.d : 1,
+        });
+      }
+      return texKeys.get(key);
+    });
+    const parts = [];
+    for (const p of this.parts.values()) {
+      if (!p.tris) continue;
+      const lists = new Map();
+      for (const [mi, c] of p.chunks) {
+        const ti = remap[mi];
+        if (!lists.has(ti)) lists.set(ti, []);
+        lists.get(ti).push({ pos: c.pos.done(), uv: c.uv.done(), col: c.col.done() });
+      }
+      p.chunks = new Map([...lists].map(([ti, l]) => [ti, concatChunks(l)]));
+      parts.push(p);
+    }
+    return { parts, textures };
+  }
+}
+
+// Читаем файл кусочками (без одной гигантской строки в памяти)
+async function streamText(blob, onChunk) {
+  if (blob.stream && window.TextDecoderStream) {
+    const reader = blob.stream().pipeThrough(new TextDecoderStream()).getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      onChunk(value, false);
+    }
+    onChunk('', true);
+  } else {
+    onChunk(await blob.text(), true);
+  }
 }
 
 function concatChunks(list) {
@@ -513,26 +595,69 @@ requestAnimationFrame(loop);
 
 // ---------- Текстуры ----------
 
-async function loadTexture(src, opts) {
-  if (!src) return null;
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = src.url;
-  try { await img.decode(); } catch { src.done(); return null; }
-  src.done();
+// Размер картинки из заголовка файла (PNG/JPEG) — без распаковки
+async function imageSize(blob) {
+  const b = new Uint8Array(await blob.slice(0, 65536).arrayBuffer());
+  if (b[0] === 0x89 && b[1] === 0x50) {
+    const dv = new DataView(b.buffer);
+    return [dv.getUint32(16), dv.getUint32(20)];
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      const len = (b[i + 2] << 8) | b[i + 3];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc)
+        return [(b[i + 7] << 8) | b[i + 8], (b[i + 5] << 8) | b[i + 6]];
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+async function decodeImage(blob, w, h) {
+  // Сразу уменьшаем при распаковке — так большие текстуры не забивают память
+  if (window.createImageBitmap) {
+    try {
+      return w ? await createImageBitmap(blob, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' }) : await createImageBitmap(blob);
+    } catch { /* старый браузер — ниже запасной путь */ }
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return img;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+async function loadTexture(blob, opts) {
+  if (!blob) return null;
   const q = QUALITY[state.quality];
-  let w = img.naturalWidth, h = img.naturalHeight;
-  const k = opts.pixelArt ? 1 : Math.min(1, q.maxTex / Math.max(w, h));
-  w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+  const size = await imageSize(blob).catch(() => null);
+  let w = 0, h = 0;
+  if (size && !opts.pixelArt) {
+    const k = Math.min(1, q.maxTex / Math.max(size[0], size[1]));
+    if (k < 1) { w = Math.max(1, Math.round(size[0] * k)); h = Math.max(1, Math.round(size[1] * k)); }
+  }
+  let img;
+  try { img = await decodeImage(blob, w, h); } catch { return null; }
+  let iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  // если размер не узнали заранее — ужимаем здесь
+  const k = opts.pixelArt ? 1 : Math.min(1, q.maxTex / Math.max(iw, ih));
+  const cw = Math.max(1, Math.round(iw * k)), ch = Math.max(1, Math.round(ih * k));
   const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
+  cv.width = cw; cv.height = ch;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
   ctx.imageSmoothingEnabled = !opts.pixelArt;
-  ctx.drawImage(img, 0, 0, w, h);
-  // есть ли прозрачность (проверяем уменьшенную копию — быстро)
+  ctx.drawImage(img, 0, 0, cw, ch);
+  if (img.close) img.close();
+  img = null;
+  // есть ли прозрачность (проверяем маленькую копию — быстро)
   let alpha = false;
   if (!/\.jpe?g$/i.test(opts.name || '')) {
-    const sw = Math.min(w, 64), sh = Math.min(h, 64);
+    const sw = Math.min(cw, 64), sh = Math.min(ch, 64);
     const tmp = document.createElement('canvas'); tmp.width = sw; tmp.height = sh;
     const tc = tmp.getContext('2d', { willReadFrequently: true });
     tc.drawImage(cv, 0, 0, sw, sh);
@@ -574,6 +699,7 @@ function variantsFor(texPaths) {
 
 function clearModel() {
   for (const ch of [...modelRoot.children]) { ch.geometry.dispose(); modelRoot.remove(ch); }
+  renderer.renderLists.dispose();
   state.materials.forEach((m) => m.dispose());
   state.materials = [];
 }
@@ -596,27 +722,74 @@ function makeMaterial(i) {
   return m;
 }
 
-function rebuild() {
+// Собираем меши один раз: по мешу на текстуру, части лежат подряд.
+// Исходные куски после этого выбрасываем — модель хранится в памяти один раз.
+function buildMeshes() {
   clearModel();
   const cur = state.current;
   if (!cur) return;
   const byTex = new Map();
   for (const p of cur.parts) {
-    if (!p.visible) continue;
-    for (const [ti, c] of p.chunks) { if (!byTex.has(ti)) byTex.set(ti, []); byTex.get(ti).push(c); }
+    p.ranges = [];
+    for (const [ti, c] of p.chunks) { if (!byTex.has(ti)) byTex.set(ti, []); byTex.get(ti).push({ p, c }); }
   }
   for (const [ti, list] of byTex) {
-    const c = concatChunks(list);
+    const vcount = list.reduce((s, x) => s + x.c.pos.length / 3, 0);
+    const pos = new Float32Array(vcount * 3), uv = new Float32Array(vcount * 2), col = new Float32Array(vcount * 3);
+    let o = 0;
+    for (const { p, c } of list) {
+      const n = c.pos.length / 3;
+      pos.set(c.pos, o * 3); uv.set(c.uv, o * 2); col.set(c.col, o * 3);
+      p.ranges.push({ ti, start: o, count: n });
+      o += n;
+    }
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(c.pos, 3));
-    g.setAttribute('uv', new THREE.BufferAttribute(c.uv, 2));
-    g.setAttribute('color', new THREE.BufferAttribute(c.col, 3));
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.computeBoundingBox();
     g.computeBoundingSphere();
-    const mat = makeMaterial(ti);
-    state.materials.push(mat);
-    const mesh = new THREE.Mesh(g, mat);
+    const mesh = new THREE.Mesh(g);
+    mesh.userData.ti = ti;
     mesh.matrixAutoUpdate = false;
     modelRoot.add(mesh);
+  }
+  for (const p of cur.parts) p.chunks = null;
+  refreshMaterials();
+}
+
+function refreshMaterials() {
+  state.materials.forEach((m) => m.dispose());
+  state.materials = [];
+  for (const mesh of modelRoot.children) {
+    const m = makeMaterial(mesh.userData.ti);
+    state.materials.push(m);
+    mesh.userData.mat = m;
+  }
+  applyVisibility();
+}
+
+// Скрытые части просто не рисуем (группы диапазонов), ничего не пересобирая
+function applyVisibility() {
+  const cur = state.current;
+  if (!cur) return;
+  for (const mesh of modelRoot.children) {
+    const ti = mesh.userData.ti;
+    const all = [], vis = [];
+    for (const p of cur.parts) for (const r of p.ranges) if (r.ti === ti) { all.push(r); if (p.visible) vis.push(r); }
+    const g = mesh.geometry;
+    g.clearGroups();
+    mesh.visible = vis.length > 0;
+    if (vis.length === all.length) { mesh.material = mesh.userData.mat; continue; }
+    vis.sort((a, b) => a.start - b.start);
+    let s0 = -1, e0 = -1;
+    for (const r of vis) {
+      if (r.start === e0) { e0 += r.count; continue; }
+      if (s0 >= 0) g.addGroup(s0, e0 - s0, 0);
+      s0 = r.start; e0 = r.start + r.count;
+    }
+    if (s0 >= 0) g.addGroup(s0, e0 - s0, 0);
+    mesh.material = [mesh.userData.mat];
   }
   updateStats();
   requestRender();
@@ -653,16 +826,17 @@ let loadToken = 0;
 // Один файл модели -> { parts, textures, pixelArt, doubleSide }
 async function loadFile(entry) {
   const ext = extOf(entry.path);
-  const text = await Files.text(entry);
   if (ext === 'obj') {
+    const parser = new ObjParser();
+    await streamText(await Files.blob(entry), (chunk, last) => parser.feed(chunk, last));
     let mtl = new Map();
-    const mtllib = /^mtllib\s+(.+)$/m.exec(text);
-    const mtlEntry = Files.find(dirOf(entry.path) + (mtllib ? mtllib[1].trim() : baseOf(entry.path).replace(/\.obj$/i, '.mtl')))
+    const mtlEntry = (parser.mtllib && Files.find(dirOf(entry.path) + parser.mtllib))
       || Files.find(entry.path.replace(/\.obj$/i, '.mtl'));
     if (mtlEntry) mtl = parseMTL(await Files.text(mtlEntry));
-    const r = parseOBJ(text, mtl, entry.path);
+    const r = parser.finish(mtl, entry.path);
     return { parts: r.parts, textures: r.textures, pixelArt: false, doubleSide: true };
   }
+  const text = await Files.text(entry);
   if (ext === 'bbmodel') {
     const r = parseBBModel(JSON.parse(text));
     return { parts: r.parts, textures: r.textures, pixelArt: true, doubleSide: false };
@@ -705,6 +879,10 @@ async function openModel(car, keepCamera = false) {
   const t0 = performance.now();
   showBusy(`Загружаю ${car.label}…`);
   await new Promise((r) => setTimeout(r, 20)); // даём нарисоваться индикатору
+  // сначала освобождаем прошлую модель, чтобы не держать две сразу
+  clearModel();
+  disposeTextures();
+  state.current = null;
   try {
     const loaded = [];
     for (const f of car.files) loaded.push(await loadFile(f.entry));
@@ -721,7 +899,7 @@ async function openModel(car, keepCamera = false) {
 
     await loadModelTextures(token);
     if (token !== loadToken) return;
-    rebuild();
+    buildMeshes();
     if (!keepCamera) fitCamera();
     fillParts();
     fillFileChips();
@@ -738,14 +916,21 @@ async function openModel(car, keepCamera = false) {
 async function loadModelTextures(token) {
   const cur = state.current;
   disposeTextures();
-  const list = await Promise.all(cur.textures.map(async (t) => {
-    if (t.src) return loadTexture(t.src, { pixelArt: cur.pixelArt, name: t.label });
-    if (!t.mapPath) return null;
-    const e = resolveTexturePath(t.mapPath);
-    if (!e) { t.missing = true; return null; }
-    t.missing = false;
-    return loadTexture(Files.url(e), { pixelArt: cur.pixelArt, name: e.path });
-  }));
+  const list = [];
+  // строго по одной — чтобы в памяти не было сразу всех картинок
+  for (const t of cur.textures) {
+    if (token !== loadToken) break;
+    let tex = null;
+    try {
+      if (t.src) tex = await loadTexture(await (await fetch(t.src.url)).blob(), { pixelArt: cur.pixelArt, name: t.label });
+      else if (t.mapPath) {
+        const e = resolveTexturePath(t.mapPath);
+        t.missing = !e;
+        if (e) tex = await loadTexture(await Files.blob(e), { pixelArt: cur.pixelArt, name: e.path });
+      }
+    } catch (err) { console.warn('Текстура не загрузилась', t.label, err); }
+    list.push(tex);
+  }
   if (token !== loadToken) { list.forEach((t) => t && t.dispose()); return; }
   state.texList = list;
 }
@@ -765,7 +950,7 @@ function updateStats() {
   const missing = cur ? cur.textures.filter((t) => t.missing).length : 0;
   $('stats').textContent = [
     `${tris.toLocaleString('ru-RU')} треуг.`,
-    `${modelRoot.children.length} отрисовок`,
+    `${modelRoot.children.reduce((n, m) => n + (m.visible ? Math.max(1, m.geometry.groups.length) : 0), 0)} отрисовок`,
     `${state.texList.filter(Boolean).length} текстур` + (missing ? ` (нет ${missing})` : ''),
     state.spin ? `${fps} FPS` : (state.loadMs ? `загрузка ${state.loadMs} мс` : ''),
   ].filter(Boolean).join(' · ');
@@ -899,14 +1084,14 @@ function fillFileChips() {
   }
 }
 let rebuildTimer = 0;
-function scheduleRebuild() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(rebuild, 60); }
+function scheduleRebuild() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(applyVisibility, 30); }
 
 function setAllParts(v) {
   if (!state.current) return;
   state.current.parts.forEach((p) => (p.visible = v));
   fillParts();
   fillFileChips();
-  rebuild();
+  applyVisibility();
 }
 
 function setQuality(q) {
@@ -964,13 +1149,24 @@ async function canFetchPack() {
   try { const r = await fetch(encodePath('81-540.1bg.mtl'), { method: 'GET', cache: 'no-store' }); return r.ok; } catch { return false; }
 }
 
+// Если видеокарте не хватило памяти — сообщаем, а не показываем пустой экран
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  showError('Видеокарте телефона не хватило памяти. Включи качество «Чайник» или скрой часть вагона — страница восстановится сама.');
+});
+canvas.addEventListener('webglcontextrestored', () => {
+  if (state.current) openModel(state.current.car, true);
+});
+window.addEventListener('error', (e) => showError('Ошибка: ' + (e.message || e)));
+window.addEventListener('unhandledrejection', (e) => showError('Ошибка: ' + ((e.reason && e.reason.message) || e.reason)));
+
 async function init() {
   document.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => setQuality(b.dataset.q)));
   document.querySelectorAll('[data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === state.quality)));
   toggle('btnSpin', 'spin', () => { controls.autoRotate = state.spin; controls.autoRotateSpeed = 1.5; updateStats(); requestRender(); });
   toggle('btnGrid', 'grid', () => { store.set('grid', state.grid ? '1' : '0'); if (grid) grid.visible = state.grid; requestRender(); });
   toggle('btnWire', 'wire', () => { state.materials.forEach((m) => (m.wireframe = state.wire)); requestRender(); });
-  toggle('btnGlass', 'glass', () => { store.set('glass', state.glass ? '1' : '0'); rebuild(); });
+  toggle('btnGlass', 'glass', () => { store.set('glass', state.glass ? '1' : '0'); refreshMaterials(); });
   $('btnFit').addEventListener('click', fitCamera);
   $('btnShot').addEventListener('click', screenshot);
   $('allOn').addEventListener('click', () => setAllParts(true));
@@ -981,7 +1177,7 @@ async function init() {
     const token = ++loadToken;
     showBusy('Меняю окраску…');
     await loadModelTextures(token);
-    if (token === loadToken) { rebuild(); hideBusy(); }
+    if (token === loadToken) { refreshMaterials(); hideBusy(); }
   });
   $('search').addEventListener('input', () => fillModelList());
   $('pickFolder').addEventListener('change', (e) => onPicked(e.target.files));
