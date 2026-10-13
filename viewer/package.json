@@ -1,0 +1,7 @@
+{
+  "name": "model-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "devDependencies": { "esbuild": "^0.25.0", "three": "^0.186.1" }
+}

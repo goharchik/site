@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161a22">
+<title>Просмотр моделей</title>
+<style>
+:root{
+  --bg:#161a22; --panel:#1f2430; --panel2:#272d3b; --line:#343c4e; --text:#e8ecf4; --muted:#98a2b8;
+  --accent:#4f8cff; --accent-ink:#fff; --danger:#ff6b6b; --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+button,select,input{font:inherit;color:inherit}
+#view{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+.top{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));background:linear-gradient(#161a22ee,#161a2200);pointer-events:none}
+.top>*{pointer-events:auto}
+.title{min-width:0;flex:1}
+#modelName{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stats{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{width:42px;height:42px;border-radius:var(--r);border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;cursor:pointer;flex:none;font-size:18px}
+
+.panel{position:fixed;right:12px;top:68px;bottom:12px;width:310px;background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px #0007}
+.panel-scroll{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+select,input[type=search]{width:100%;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;height:34px;border:0;border-radius:8px;background:none;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.chip{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed=true]{border-color:var(--accent);background:#4f8cff26;color:#cfe0ff}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.muted{color:var(--muted);font-size:12px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+summary{padding:10px 12px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+summary::-webkit-details-marker{display:none}
+#parts{max-height:40vh;overflow-y:auto;border-top:1px solid var(--line)}
+.part{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #2d3444;cursor:pointer}
+.part span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.part small{color:var(--muted);font-size:11px}
+.part input{width:18px;height:18px;accent-color:var(--accent)}
+.parts-tools{display:flex;gap:6px;padding:8px 12px}
+.parts-tools button{flex:1;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:12px}
+
+.overlay{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none}
+.card{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:min(420px,calc(100vw - 32px));box-shadow:0 10px 40px #0008}
+.card h2{font-size:17px;margin-bottom:8px}
+.card p{color:var(--muted);margin-bottom:12px}
+.card .row{margin-top:4px}
+.btn{height:40px;padding:0 14px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;display:inline-flex;align-items:center}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.spinner{width:22px;height:22px;border:3px solid #ffffff30;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+#busy .card{display:flex;align-items:center;gap:12px;padding:12px 16px}
+#error{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(460px,calc(100vw - 32px));background:#3a1f25;border:1px solid #6b2d36;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+#error p{flex:1}
+#error button{background:none;border:0;cursor:pointer;font-size:18px;line-height:1}
+.hint{position:fixed;left:12px;bottom:12px;color:var(--muted);font-size:12px;pointer-events:none}
+.drop{position:fixed;inset:10px;border:3px dashed var(--accent);border-radius:20px;display:none;place-items:center;font-size:20px;font-weight:700;background:#4f8cff14;pointer-events:none}
+body.drag .drop{display:grid}
+[hidden]{display:none!important}
+.panel-only{display:none}
+
+@media (max-width:760px){
+  .panel{left:0;right:0;top:auto;bottom:0;width:auto;max-height:72vh;border-radius:18px 18px 0 0;border-bottom:0;transform:translateY(calc(100% - 0px));transition:transform .22s ease;padding-bottom:env(safe-area-inset-bottom)}
+  body.panel-open .panel{transform:none}
+  .panel-only{display:grid}
+  .hint{display:none}
+  #parts{max-height:30vh}
+}
+@media (prefers-reduced-motion:reduce){.panel{transition:none}.spinner{animation-duration:2s}}
+</style>
+</head>
+<body>
+<canvas id="view" aria-label="3D-просмотр модели"></canvas>
+
+<div class="top">
+  <div class="title">
+    <div id="modelName">Просмотр моделей</div>
+    <div id="stats">Загрузка…</div>
+  </div>
+  <button class="icon-btn" id="btnFit" title="Показать модель целиком" aria-label="Показать модель целиком">⤢</button>
+  <button class="icon-btn panel-only" id="menuBtn" title="Настройки" aria-label="Настройки">☰</button>
+</div>
+
+<aside class="panel" aria-label="Настройки">
+  <div class="panel-scroll">
+    <label class="field">
+      <span>Поиск</span>
+      <input id="search" type="search" placeholder="например 740" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>Модель <b class="muted" id="count"></b></span>
+      <select id="model"></select>
+    </label>
+    <label class="field" id="variantRow" hidden>
+      <span>Окраска</span>
+      <select id="variant"></select>
+    </label>
+
+    <div class="field">
+      <span>Качество</span>
+      <div class="seg" role="group" aria-label="Качество">
+        <button data-q="potato" title="Для очень слабых телефонов">Чайник</button>
+        <button data-q="normal">Норм</button>
+        <button data-q="high">Красиво</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span>Вид</span>
+      <div class="row">
+        <button class="chip" id="btnSpin">⟳ Вращение</button>
+        <button class="chip" id="btnGrid">▦ Сетка</button>
+        <button class="chip" id="btnGlass">◫ Стёкла</button>
+        <button class="chip" id="btnWire">△ Каркас</button>
+        <button class="chip" id="btnShot">📷 Снимок</button>
+      </div>
+    </div>
+
+    <details>
+      <summary><span>Части модели</span><b class="muted" id="partsCount">0</b></summary>
+      <div class="parts-tools"><button id="allOn">Показать все</button><button id="allOff">Скрыть все</button></div>
+      <div id="parts"></div>
+    </details>
+
+    <div class="field">
+      <span>Другие файлы</span>
+      <div class="row">
+        <label class="chip file-btn">📁 Папка<input id="pickFolder" type="file" webkitdirectory directory multiple></label>
+        <label class="chip file-btn">📄 Файлы<input id="pickFiles" type="file" multiple accept=".obj,.mtl,.png,.jpg,.jpeg,.json,.bbmodel"></label>
+      </div>
+      <p class="muted">Поддерживаются .obj + .mtl, .geo.json (Bedrock) и .bbmodel (Blockbench). Выбирай модель вместе с текстурами.</p>
+    </div>
+  </div>
+</aside>
+
+<div class="overlay" id="needFolder" hidden>
+  <div class="card">
+    <h2>Где лежат модели?</h2>
+    <p>Браузер не даёт странице самой открыть файлы рядом с ней. Выбери папку MetroPack (или нужные .obj, .mtl и картинки) — дальше всё загрузится само.</p>
+    <div class="row">
+      <label class="btn file-btn">📁 Выбрать папку<input type="file" webkitdirectory directory multiple id="pickFolder2"></label>
+      <label class="btn ghost file-btn">📄 Выбрать файлы<input type="file" multiple id="pickFiles2"></label>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="busy"><div class="card"><div class="spinner"></div><div id="busyText">Загрузка…</div></div></div>
+<div id="error" hidden role="alert"><p id="errorText"></p><button id="errorClose" aria-label="Закрыть">×</button></div>
+<div class="hint">Мышь: левая — крутить, правая — двигать, колесо — приближать</div>
+<div class="drop">Отпусти папку или файлы</div>
+<!--APP-->
+</body>
+</html>
