@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PACK_FILES } from './pack-files.js';
+import { parseAnimFile, evalChannel, AnimFormatError } from './anim.js';
 
 // ============================================================
 //  Файлы: либо читаем по относительному пути (fetch), либо из
@@ -244,7 +245,10 @@ function parseGeo(geo) {
       emitCube(sink, part, m, from, to, faces, () => [geo.texW, geo.texH]);
     }
   }
-  return sink.finish();
+  const parts = sink.finish();
+  // кости нужны анимациям: опорная точка и поворот в покое
+  parts.rig = geo.bones.map((b) => ({ name: b.name, parent: b.parent || null, pivot: flipP(b.pivot), rot: flipR(b.rotation) }));
+  return parts;
 }
 
 // ---------- Проект Blockbench .bbmodel ----------
@@ -533,6 +537,8 @@ controls.addEventListener('change', () => requestRender());
 
 const modelRoot = new THREE.Group();
 scene.add(modelRoot);
+const animRoot = new THREE.Group();
+scene.add(animRoot);
 let grid = null;
 
 const QUALITY = {
@@ -582,9 +588,13 @@ function resize() {
 new ResizeObserver(resize).observe(canvas);
 
 let frames = 0, fpsT = performance.now(), fps = 0;
+let lastT = 0;
 function loop(t) {
   requestAnimationFrame(loop);
+  const dt = Math.min(0.1, (t - (lastT || t)) / 1000);
+  lastT = t;
   if (state.spin) { controls.update(); needRender = true; }
+  if (Anim.playing) { Anim.advance(dt); needRender = true; }
   if (!needRender) return;
   needRender = false;
   renderer.render(scene, camera);
@@ -698,6 +708,7 @@ function variantsFor(texPaths) {
 // ---------- Сборка сцены из частей ----------
 
 function clearModel() {
+  clearAnimNodes();
   for (const ch of [...modelRoot.children]) { ch.geometry.dispose(); modelRoot.remove(ch); }
   renderer.renderLists.dispose();
   state.materials.forEach((m) => m.dispose());
@@ -761,11 +772,14 @@ function buildMeshes() {
 function refreshMaterials() {
   state.materials.forEach((m) => m.dispose());
   state.materials = [];
+  state.matByTi = new Map();
   for (const mesh of modelRoot.children) {
     const m = makeMaterial(mesh.userData.ti);
     state.materials.push(m);
     mesh.userData.mat = m;
+    state.matByTi.set(mesh.userData.ti, m);
   }
+  for (const node of animRoot.children) for (const m of node.children) m.material = state.matByTi.get(m.userData.ti);
   applyVisibility();
 }
 
@@ -773,10 +787,12 @@ function refreshMaterials() {
 function applyVisibility() {
   const cur = state.current;
   if (!cur) return;
+  for (const p of cur.parts) if (p.animNode) p.animNode.visible = p.visible;
   for (const mesh of modelRoot.children) {
     const ti = mesh.userData.ti;
     const all = [], vis = [];
-    for (const p of cur.parts) for (const r of p.ranges) if (r.ti === ti) { all.push(r); if (p.visible) vis.push(r); }
+    // анимированные части рисуются отдельно (в animRoot), здесь их пропускаем
+    for (const p of cur.parts) for (const r of p.ranges) if (r.ti === ti) { all.push(r); if (p.visible && !p.animNode) vis.push(r); }
     const g = mesh.geometry;
     g.clearGroups();
     mesh.visible = vis.length > 0;
@@ -847,7 +863,8 @@ async function loadFile(entry) {
   const stem = baseOf(entry.path).replace(/(\.geo)?\.json$/i, '');
   const imgs = Files.paths().filter((p) => /\.(png|jpe?g)$/i.test(p) && dirOf(p) === dirOf(entry.path));
   const pick = imgs.find((p) => baseOf(p).toLowerCase().startsWith(stem.toLowerCase())) || imgs[0] || null;
-  return { parts: parseGeo(geos[0]), textures: [{ key: 'geo:' + entry.path, label: pick ? baseOf(pick) : 'нет текстуры', mapPath: pick }], pixelArt: true, doubleSide: false };
+  const geoParts = parseGeo(geos[0]);
+  return { parts: geoParts, rig: geoParts.rig, textures: [{ key: 'geo:' + entry.path, label: pick ? baseOf(pick) : 'нет текстуры', mapPath: pick }], pixelArt: true, doubleSide: false };
 }
 
 // Склеиваем файлы вагона (bg + fg и т.п.) в одну модель
@@ -869,6 +886,7 @@ function mergeModels(car, loaded) {
   });
   return {
     parts, textures,
+    rig: loaded.length === 1 ? loaded[0].rig || null : null,
     pixelArt: loaded.every((m) => m.pixelArt),
     doubleSide: loaded.some((m) => m.doubleSide),
   };
@@ -903,6 +921,7 @@ async function openModel(car, keepCamera = false) {
     if (!keepCamera) fitCamera();
     fillParts();
     fillFileChips();
+    await Anim.refreshList();
     $('modelName').textContent = car.label;
     state.loadMs = Math.round(performance.now() - t0);
     updateStats();
@@ -936,6 +955,234 @@ async function loadModelTextures(token) {
 }
 
 // ============================================================
+//  Анимации
+// ============================================================
+
+function clearAnimNodes() {
+  for (const node of [...animRoot.children]) {
+    for (const m of node.children) m.geometry.dispose();
+    animRoot.remove(node);
+  }
+  if (state.current) for (const p of state.current.parts) p.animNode = null;
+}
+
+// Имя части без приставки файла («fg: DOOR_1» → «DOOR_1»)
+const bareName = (n) => (n.includes(': ') ? n.slice(n.indexOf(': ') + 2) : n);
+
+const Anim = {
+  parsed: new Map(), // путь файла -> { clips } или { error }
+  clip: null,
+  time: 0,
+  playing: false,
+  speed: 1,
+  loop: true,
+  rest: null, // мировые матрицы костей в покое
+
+  // Файлы анимаций рядом с моделью
+  files() {
+    const cur = state.current;
+    if (!cur) return [];
+    const dirs = new Set(cur.car.files.map((f) => dirOf(f.entry.path)));
+    return Files.paths().filter((p) => /\.anim$|\.animation\.json$/i.test(p) && (dirs.has(dirOf(p)) || Files.get(p).file && !p.includes('/')))
+      .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true }));
+  },
+
+  async refreshList() {
+    const sel = $('animClip');
+    sel.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = ''; none.textContent = '— без анимации —';
+    sel.appendChild(none);
+    const errors = [];
+    for (const path of this.files()) {
+      let res = this.parsed.get(path);
+      if (!res) {
+        try { res = parseAnimFile(baseOf(path), await Files.text(Files.get(path))); }
+        catch (e) { res = { error: e.message, preview: e instanceof AnimFormatError ? e.preview : '' }; }
+        this.parsed.set(path, res);
+      }
+      if (res.error) { errors.push(`${baseOf(path)}: ${res.error}` + (res.preview ? `\nНачало файла:\n${res.preview}` : '')); continue; }
+      const og = document.createElement('optgroup');
+      og.label = baseOf(path);
+      res.clips.forEach((c, i) => {
+        const o = document.createElement('option');
+        o.value = `${path}#${i}`;
+        o.textContent = `${c.name.replace(/^animation\./, '')} (${c.length.toFixed(2)} с)`;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    }
+    $('animInfo').textContent = errors.length ? errors.join('\n\n') : (this.files().length ? '' : 'Рядом с моделью нет файлов .anim / .animation.json — загрузи кнопкой выше.');
+    $('animInfo').classList.toggle('warn', errors.length > 0);
+    this.select('');
+  },
+
+  select(value) {
+    clearAnimNodes();
+    this.clip = null; this.time = 0; this.playing = false;
+    $('animClip').value = value;
+    if (value) {
+      const [path, i] = value.split('#');
+      const res = this.parsed.get(path);
+      this.clip = res && res.clips ? res.clips[+i] : null;
+    }
+    if (this.clip) this.attach();
+    this.syncUI();
+    applyVisibility();
+  },
+
+  // Вынимаем анимированные части из общего меша в отдельные узлы
+  attach() {
+    const cur = state.current;
+    const tracks = this.clip.tracks;
+    let names;
+    if (cur.rig) {
+      // кость двигается, если анимирована она или любой её родитель
+      const byName = new Map(cur.rig.map((b) => [b.name, b]));
+      const moving = (b, d = 0) => !!b && d < 64 && (tracks.has(b.name) || moving(byName.get(b.parent), d + 1));
+      names = new Set(cur.rig.filter((b) => moving(b)).map((b) => b.name));
+      this.rest = new Map();
+      for (const b of cur.rig) this.restMatrix(b, byName);
+    } else {
+      names = new Set(cur.parts.map((p) => bareName(p.name)).filter((n) => tracks.has(n)));
+    }
+    let found = 0;
+    for (const p of cur.parts) {
+      if (!names.has(bareName(p.name))) continue;
+      const node = new THREE.Group();
+      node.matrixAutoUpdate = false;
+      node.userData.bone = bareName(p.name);
+      for (const r of p.ranges) {
+        const src = modelRoot.children.find((m) => m.userData.ti === r.ti);
+        if (!src) continue;
+        const g = new THREE.BufferGeometry();
+        for (const [k, size] of [['position', 3], ['uv', 2], ['color', 3]]) {
+          const a = src.geometry.attributes[k].array;
+          g.setAttribute(k, new THREE.BufferAttribute(a.slice(r.start * size, (r.start + r.count) * size), size));
+        }
+        g.computeBoundingSphere();
+        const mesh = new THREE.Mesh(g, state.matByTi.get(r.ti));
+        mesh.userData.ti = r.ti;
+        node.add(mesh);
+      }
+      p.animNode = node;
+      animRoot.add(node);
+      found++;
+    }
+    const missing = [...tracks.keys()].filter((n) => !cur.parts.some((p) => bareName(p.name) === n) && !(cur.rig && cur.rig.some((b) => b.name === n)));
+    $('animInfo').textContent = `Двигается частей: ${found}` + (missing.length ? `. В модели нет частей: ${missing.slice(0, 8).join(', ')}${missing.length > 8 ? '…' : ''}` : '');
+    $('animInfo').classList.toggle('warn', found === 0);
+    this.apply();
+  },
+
+  restMatrix(b, byName, d = 0) {
+    if (this.rest.has(b.name)) return this.rest.get(b.name);
+    const parent = b.parent && byName.get(b.parent);
+    const pm = parent && d < 64 ? this.restMatrix(parent, byName, d + 1) : new THREE.Matrix4();
+    const m = pm.clone().multiply(pivotMatrix(b.pivot, b.rot));
+    this.rest.set(b.name, m);
+    return m;
+  },
+
+  // Ставим части в положение на текущий момент времени
+  apply() {
+    const cur = state.current;
+    if (!cur || !this.clip) return;
+    const t = this.time;
+    const tracks = this.clip.tracks;
+    const S = new THREE.Matrix4().makeScale(1 / 16, 1 / 16, 1 / 16);
+    const S16 = new THREE.Matrix4().makeScale(16, 16, 16);
+    if (cur.rig) {
+      const byName = new Map(cur.rig.map((b) => [b.name, b]));
+      const animW = new Map();
+      const world = (b, d = 0) => {
+        if (animW.has(b.name)) return animW.get(b.name);
+        const parent = b.parent && byName.get(b.parent);
+        const pm = parent && d < 64 ? world(parent, d + 1) : new THREE.Matrix4();
+        const tr = tracks.get(b.name) || {};
+        const r = evalChannel(tr.rotation, t) || [0, 0, 0];
+        const pos = evalChannel(tr.position, t) || [0, 0, 0];
+        const sc = evalChannel(tr.scale, t) || [1, 1, 1];
+        const rot = [b.rot[0] - r[0], b.rot[1] - r[1], b.rot[2] + r[2]]; // как у Blockbench: X и Y зеркальны
+        const m = pm.clone()
+          .multiply(new THREE.Matrix4().makeTranslation(-pos[0], pos[1], pos[2]))
+          .multiply(pivotMatrix(b.pivot, rot))
+          .multiply(new THREE.Matrix4().makeTranslation(b.pivot[0], b.pivot[1], b.pivot[2]))
+          .multiply(new THREE.Matrix4().makeScale(sc[0], sc[1], sc[2]))
+          .multiply(new THREE.Matrix4().makeTranslation(-b.pivot[0], -b.pivot[1], -b.pivot[2]));
+        animW.set(b.name, m);
+        return m;
+      };
+      for (const node of animRoot.children) {
+        const b = byName.get(node.userData.bone);
+        if (!b) continue;
+        const delta = world(b).clone().multiply(this.rest.get(b.name).clone().invert());
+        node.matrix.copy(S).multiply(delta).multiply(S16);
+        node.matrixWorldNeedsUpdate = true;
+      }
+    } else {
+      // части OBJ: поворот вокруг центра части, сдвиг в пикселях
+      for (const node of animRoot.children) {
+        const tr = tracks.get(node.userData.bone) || {};
+        const r = evalChannel(tr.rotation, t) || [0, 0, 0];
+        const pos = evalChannel(tr.position, t) || [0, 0, 0];
+        if (!node.userData.center) {
+          const box = new THREE.Box3();
+          node.children.forEach((m) => { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); });
+          node.userData.center = box.getCenter(new THREE.Vector3());
+        }
+        const c = node.userData.center;
+        _e.set(-r[0] * D2R, -r[1] * D2R, r[2] * D2R, 'ZYX');
+        node.matrix.makeTranslation(c.x - pos[0] / 16, c.y + pos[1] / 16, c.z + pos[2] / 16)
+          .multiply(new THREE.Matrix4().makeRotationFromEuler(_e))
+          .multiply(new THREE.Matrix4().makeTranslation(-c.x, -c.y, -c.z));
+        node.matrixWorldNeedsUpdate = true;
+      }
+    }
+    requestRender();
+  },
+
+  advance(dt) {
+    if (!this.clip) { this.playing = false; return; }
+    this.time += dt * this.speed;
+    const L = this.clip.length;
+    if (this.time >= L) {
+      if (this.loop) this.time %= L || 1;
+      else { this.time = L; this.playing = false; this.syncUI(); }
+    }
+    this.apply();
+    this.syncTime();
+  },
+
+  syncTime() {
+    const L = this.clip ? this.clip.length : 1;
+    $('animTime').value = String(Math.round((this.time / (L || 1)) * 1000));
+    $('animClock').textContent = `${this.time.toFixed(2)} / ${L.toFixed(2)} с`;
+  },
+
+  syncUI() {
+    const has = !!this.clip;
+    for (const id of ['animPlay', 'animTime', 'animSpeed', 'animLoop']) $(id).disabled = !has;
+    $('animPlay').textContent = this.playing ? '⏸' : '▶';
+    $('animPlay').setAttribute('aria-label', this.playing ? 'Пауза' : 'Играть');
+    $('animLoop').setAttribute('aria-pressed', String(this.loop));
+    this.syncTime();
+  },
+
+  async addFiles(fileList) {
+    for (const f of fileList) {
+      const path = f.name;
+      Files.byLower.set(path.toLowerCase(), { path, file: f });
+      this.parsed.delete(path);
+    }
+    await this.refreshList();
+    // сразу включаем первую анимацию из только что добавленного файла
+    const first = [...$('animClip').options].find((o) => o.value && fileList.length && o.value.startsWith(fileList[0].name + '#'));
+    if (first) { this.select(first.value); this.playing = true; this.syncUI(); }
+  },
+};
+
+// ============================================================
 //  Интерфейс
 // ============================================================
 
@@ -964,8 +1211,14 @@ function seriesOf(path) {
   return m ? m[1] : b;
 }
 
-// Показываем только эту серию (для .obj). Пустая строка — показывать всё.
-const ONLY_SERIES = '81-540';
+// Какую серию показывать (для .obj). Пусто — показывать всё.
+const seriesFilter = () => $('series').value.trim().toLowerCase();
+function inSeries(path) {
+  const s = seriesFilter();
+  if (!s) return true;
+  const b = baseOf(path).toLowerCase();
+  return b.startsWith(s) && !/\d/.test(b[s.length] || '');
+}
 
 // «81-540.1bg» и «81-540.1fg» — куски одного вагона «81-540.1»
 const PIECE_NAMES = { bg: 'кузов', fg: 'детали', f: 'перед', r: 'зад' };
@@ -980,7 +1233,7 @@ function buildCars() {
   const cars = new Map();
   const paths = Files.paths()
     .filter((p) => MODEL_EXT.has(extOf(p)) && !(extOf(p) === 'json' && !/geo|model/i.test(p)))
-    .filter((p) => extOf(p) !== 'obj' || !ONLY_SERIES || baseOf(p).toLowerCase().startsWith(ONLY_SERIES.toLowerCase() + '.'))
+    .filter((p) => extOf(p) !== 'obj' || inSeries(p))
     .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true }));
   for (const p of paths) {
     const { key, tag } = carKeyOf(p);
@@ -1022,7 +1275,22 @@ function fillModelList() {
   }
   if (cars.some((c) => c.key === prev)) sel.value = prev;
   $('count').textContent = `${cars.length} шт.`;
+  showEmpty(cars.length === 0 && !filter);
   return cars;
+}
+
+// Ничего не нашли — подсказываем, что делать
+function showEmpty(empty) {
+  const card = $('needFolder');
+  if (!empty) { card.hidden = true; return; }
+  const s = $('series').value.trim();
+  $('needTitle').textContent = s ? `Моделей «${s}» не нашлось` : 'Моделей не нашлось';
+  $('needText').textContent = s
+    ? `В этой папке нет файлов, которые начинаются на «${s}». Выбери папку, где лежат модели ${s} (.obj + .mtl + картинки), или очисти поле «Серия», чтобы увидеть все.`
+    : 'Выбери папку с моделями (.obj + .mtl + картинки, .geo.json или .bbmodel).';
+  $('showAll').hidden = !s;
+  card.hidden = false;
+  hideBusy();
 }
 
 function fillVariants(variants) {
@@ -1126,9 +1394,7 @@ function onPicked(fileList) {
   Files.usePicked(fileList);
   state.variant = '';
   const cars = fillModelList();
-  $('needFolder').hidden = true;
   if (cars.length) openFromSelect(cars);
-  else showError('Среди выбранных файлов нет моделей (.obj, .geo.json, .bbmodel).');
 }
 
 function openFromSelect(cars, preferred) {
@@ -1180,6 +1446,33 @@ async function init() {
     if (token === loadToken) { refreshMaterials(); hideBusy(); }
   });
   $('search').addEventListener('input', () => fillModelList());
+  $('series').value = store.get('series', '81-718');
+  const onSeries = () => {
+    store.set('series', $('series').value.trim());
+    const cars = fillModelList();
+    const curKey = state.current && state.current.car.key;
+    // открытый вагон остался в списке — ничего не перезагружаем
+    if (curKey && cars.some((c) => c.key === curKey)) { $('model').value = curKey; return; }
+    if (cars.length) openFromSelect(cars);
+  };
+  $('series').addEventListener('change', onSeries);
+  $('showAll').addEventListener('click', () => { $('series').value = ''; onSeries(); });
+  $('animClip').addEventListener('change', () => { Anim.select($('animClip').value); if (Anim.clip) { Anim.playing = true; Anim.syncUI(); } });
+  $('animPlay').addEventListener('click', () => {
+    if (!Anim.clip) return;
+    if (!Anim.playing && Anim.time >= Anim.clip.length) Anim.time = 0;
+    Anim.playing = !Anim.playing; Anim.syncUI(); requestRender();
+  });
+  $('animTime').addEventListener('input', () => {
+    if (!Anim.clip) return;
+    Anim.playing = false;
+    Anim.time = (+$('animTime').value / 1000) * Anim.clip.length;
+    Anim.apply(); Anim.syncUI();
+  });
+  $('animSpeed').addEventListener('change', () => { Anim.speed = +$('animSpeed').value; });
+  $('animLoop').addEventListener('click', () => { Anim.loop = !Anim.loop; Anim.syncUI(); });
+  $('pickAnim').addEventListener('change', (e) => { if (e.target.files.length) Anim.addFiles([...e.target.files]); e.target.value = ''; });
+  Anim.syncUI();
   $('pickFolder').addEventListener('change', (e) => onPicked(e.target.files));
   for (const id of ['pickFolder2', 'pickFiles', 'pickFiles2']) $(id).addEventListener('change', (e) => onPicked(e.target.files));
   $('errorClose').addEventListener('click', () => ($('error').hidden = true));
@@ -1198,10 +1491,10 @@ async function init() {
   resize();
   if (await canFetchPack()) {
     Files.useList(PACK_FILES);
-    openFromSelect(fillModelList(), store.get('last', ''));
+    const cars = fillModelList();
+    if (cars.length) openFromSelect(cars, store.get('last', ''));
   } else {
-    $('needFolder').hidden = false;
-    hideBusy();
+    showEmpty(true);
   }
 }
 

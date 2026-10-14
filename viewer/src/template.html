@@ -65,6 +65,11 @@ summary::-webkit-details-marker{display:none}
 .hint{position:fixed;left:12px;bottom:12px;color:var(--muted);font-size:12px;pointer-events:none}
 .drop{position:fixed;inset:10px;border:3px dashed var(--accent);border-radius:20px;display:none;place-items:center;font-size:20px;font-weight:700;background:#4f8cff14;pointer-events:none}
 body.drag .drop{display:grid}
+.anim-ctrl{display:flex;gap:8px;align-items:center}
+.anim-ctrl input{flex:1;accent-color:var(--accent);height:30px}
+#animInfo{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;max-height:160px;overflow:auto}
+#animInfo.warn{color:#ffc56b}
+button:disabled{opacity:.45;cursor:default}
 [hidden]{display:none!important}
 .panel-only{display:none}
 
@@ -92,6 +97,10 @@ body.drag .drop{display:grid}
 
 <aside class="panel" aria-label="Настройки">
   <div class="panel-scroll">
+    <label class="field">
+      <span>Серия</span>
+      <input id="series" type="search" placeholder="например 81-718 (пусто — все)" autocomplete="off" enterkeyhint="done">
+    </label>
     <label class="field">
       <span>Поиск</span>
       <input id="search" type="search" placeholder="например 540.7" autocomplete="off">
@@ -130,6 +139,24 @@ body.drag .drop{display:grid}
       <div class="row" id="filesRow"></div>
     </div>
 
+    <div class="field">
+      <span>Анимации</span>
+      <select id="animClip" aria-label="Анимация"></select>
+      <div class="anim-ctrl">
+        <button class="icon-btn" id="animPlay" aria-label="Играть">▶</button>
+        <input type="range" id="animTime" min="0" max="1000" value="0" aria-label="Время анимации">
+      </div>
+      <div class="row" style="align-items:center">
+        <span class="muted" id="animClock">0.00 / 0.00 с</span>
+        <select id="animSpeed" aria-label="Скорость" style="width:auto;height:36px">
+          <option value="0.25">×0.25</option><option value="0.5">×0.5</option><option value="1" selected>×1</option><option value="2">×2</option>
+        </select>
+        <button class="chip" id="animLoop">🔁 Повтор</button>
+        <label class="chip file-btn">📂 .anim<input id="pickAnim" type="file" multiple accept=".anim,.json"></label>
+      </div>
+      <p class="muted" id="animInfo"></p>
+    </div>
+
     <details>
       <summary><span>Части модели</span><b class="muted" id="partsCount">0</b></summary>
       <div class="parts-tools"><button id="allOn">Показать все</button><button id="allOff">Скрыть все</button></div>
@@ -140,7 +167,7 @@ body.drag .drop{display:grid}
       <span>Другие файлы</span>
       <div class="row">
         <label class="chip file-btn">📁 Папка<input id="pickFolder" type="file" webkitdirectory directory multiple></label>
-        <label class="chip file-btn">📄 Файлы<input id="pickFiles" type="file" multiple accept=".obj,.mtl,.png,.jpg,.jpeg,.json,.bbmodel"></label>
+        <label class="chip file-btn">📄 Файлы<input id="pickFiles" type="file" multiple accept=".obj,.mtl,.png,.jpg,.jpeg,.json,.bbmodel,.anim"></label>
       </div>
       <p class="muted">Поддерживаются .obj + .mtl, .geo.json (Bedrock) и .bbmodel (Blockbench). Выбирай модель вместе с текстурами.</p>
     </div>
@@ -149,11 +176,12 @@ body.drag .drop{display:grid}
 
 <div class="overlay" id="needFolder" hidden>
   <div class="card">
-    <h2>Где лежат модели?</h2>
-    <p>Браузер не даёт странице самой открыть файлы рядом с ней. Выбери папку MetroPack (или нужные .obj, .mtl и картинки) — дальше всё загрузится само.</p>
+    <h2 id="needTitle">Где лежат модели?</h2>
+    <p id="needText">Браузер не даёт странице самой открыть файлы рядом с ней. Выбери папку с моделями — дальше всё загрузится само.</p>
     <div class="row">
       <label class="btn file-btn">📁 Выбрать папку<input type="file" webkitdirectory directory multiple id="pickFolder2"></label>
       <label class="btn ghost file-btn">📄 Выбрать файлы<input type="file" multiple id="pickFiles2"></label>
+      <button class="btn ghost" id="showAll" hidden>Показать все</button>
     </div>
   </div>
 </div>
