@@ -1,0 +1,65 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant",
+    "description": "pack.description",
+    "uuid": "e0b30691-94d9-4f44-9ed8-bc69173abbd2",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "745fe060-5bb3-4490-9b8d-9f9351f0e618",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "4670f45c-c0d8-4510-a373-bb763ed9fffb",
+      "version": [
+        1,
+        0,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "b14147bc-bbb1-48db-9dcf-91145b67909c",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.4.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "Claude (neural network / AI)",
+      "Komarchik (TG: @komarchikoff) - author of all ideas"
+    ],
+    "url": "https://t.me/+nmX5AM8xJG5lMTRi"
+  }
+}

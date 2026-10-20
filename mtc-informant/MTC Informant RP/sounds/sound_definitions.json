@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.20",
+  "sound_definitions": {
+    "mtcinformant:examples.chime": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        {
+          "name": "sounds/mtcinformant/examples/chime",
+          "volume": 1.0
+        }
+      ]
+    },
+    "mtcinformant:examples.doors": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        {
+          "name": "sounds/mtcinformant/examples/doors",
+          "volume": 1.0
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+pack.description=Мод добавит для контроллера MTC информатор. Подробный гайд в Telegram: https://t.me/+nmX5AM8xJG5lMTRi | Автор: нейросеть Claude. Создатель всех идей: Komarchik (TG: @komarchikoff)	#
+item.mtcinformant:informant.name=Информатор MTC	#
+mtcinformant.ui.title=§lИНФОРМАТОР MTC	#
+mtcinformant.ui.choose_section=Выбери раздел информатора.
+Потом он будет открываться сразу.	#
+mtcinformant.ui.section=§7Раздел:§r §e%s	#
+mtcinformant.ui.last=§7Последний звук:§r §a%s	#
+mtcinformant.ui.none=§8—	#
+mtcinformant.ui.hint=§8Звук включится в ближайшем вагоне MTC (до %s блоков от тебя).	#
+mtcinformant.ui.back=§l« Назад к разделам	#
+mtcinformant.ui.empty=§cВ этом разделе пока нет звуков.	#
+mtcinformant.ui.no_sections=§cРазделов нет. Добавь их в scripts/config.js (смотри гайд).	#
+mtcinformant.msg.no_train=§c[Информатор] Рядом нет вагона MTC (ищу в радиусе %s блоков).	#
+mtcinformant.msg.nearby=§7Рядом есть сущности: %s	#
+mtcinformant.msg.playing=§6Информатор:§r %s §7—§r %s	#

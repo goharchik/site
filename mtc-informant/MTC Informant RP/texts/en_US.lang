@@ -1,0 +1,15 @@
+pack.description=This mod adds a passenger information system (informant) for the MTC controller. Detailed guide on Telegram: https://t.me/+nmX5AM8xJG5lMTRi | Author: neural network Claude. Creator of all ideas: Komarchik (TG: @komarchikoff)	#
+item.mtcinformant:informant.name=MTC Informant	#
+mtcinformant.ui.title=§lMTC INFORMANT	#
+mtcinformant.ui.choose_section=Choose an informant section.
+Next time it will open right away.	#
+mtcinformant.ui.section=§7Section:§r §e%s	#
+mtcinformant.ui.last=§7Last sound:§r §a%s	#
+mtcinformant.ui.none=§8—	#
+mtcinformant.ui.hint=§8The sound plays in the nearest MTC car (up to %s blocks from you).	#
+mtcinformant.ui.back=§l« Back to sections	#
+mtcinformant.ui.empty=§cThis section has no sounds yet.	#
+mtcinformant.ui.no_sections=§cNo sections. Add them in scripts/config.js (see the guide).	#
+mtcinformant.msg.no_train=§c[Informant] No MTC car nearby (searching within %s blocks).	#
+mtcinformant.msg.nearby=§7Entities nearby: %s	#
+mtcinformant.msg.playing=§6Informant:§r %s §7—§r %s	#

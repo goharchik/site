@@ -1,0 +1,46 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant",
+    "description": "pack.description",
+    "uuid": "b14147bc-bbb1-48db-9dcf-91145b67909c",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "9f4f0050-499c-4355-8351-34a437b95602",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "e0b30691-94d9-4f44-9ed8-bc69173abbd2",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "Claude (neural network / AI)",
+      "Komarchik (TG: @komarchikoff) - author of all ideas"
+    ],
+    "url": "https://t.me/+nmX5AM8xJG5lMTRi"
+  }
+}
