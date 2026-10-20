@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181f">
+<title>Сборщик линий MTC Informant</title>
+<style>
+:root{
+  --bg:#16181f; --panel:#20232d; --panel2:#2a2e3a; --line:#363b4a; --text:#eceef4; --muted:#9aa1b3;
+  --accent:#ffb13b; --accent-ink:#1b1305; --ok:#5bd38a; --warn:#ffc56b; --bad:#ff7b7b; --r:12px;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){ --bg:#f3f4f7; --panel:#ffffff; --panel2:#f0f1f5; --line:#d9dce4; --text:#1b1d24; --muted:#5d6475; --accent:#d9850c; --accent-ink:#fff; --ok:#1d8a4b; --warn:#9a6200; --bad:#c62f2f; }
+}
+:root[data-theme="dark"]{ --bg:#16181f; --panel:#20232d; --panel2:#2a2e3a; --line:#363b4a; --text:#eceef4; --muted:#9aa1b3; --accent:#ffb13b; --accent-ink:#1b1305; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+main{max-width:760px;margin:0 auto;padding:20px 16px 120px;display:flex;flex-direction:column;gap:16px}
+header h1{font-size:22px;line-height:1.2}
+header p{color:var(--muted);margin-top:6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h2{font-size:16px;display:flex;align-items:center;gap:8px}
+.step{width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+label.field{display:flex;flex-direction:column;gap:5px}
+label.field>span{color:var(--muted);font-size:13px}
+input[type=text]{height:42px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:0 12px;outline:none;width:100%}
+input[type=text]:focus{border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.muted{color:var(--muted);font-size:13px}
+.btn{height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
+.btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;height:36px;border:0;border-radius:8px;background:none;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.icon-box{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.previews{display:flex;gap:14px;align-items:flex-end}
+.previews figure{display:flex;flex-direction:column;align-items:center;gap:4px}
+.previews figcaption{font-size:12px;color:var(--muted)}
+canvas.pv{border-radius:12px;background:repeating-conic-gradient(#8883 0 25%,transparent 0 50%) 0 0/16px 16px;image-rendering:pixelated}
+input[type=color]{width:52px;height:42px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:3px}
+.sounds{display:flex;flex-direction:column;gap:8px}
+.snd{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px}
+.snd .play{width:40px;height:40px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;font-size:16px}
+.snd input{height:38px;grid-column:2/4}
+.snd .meta{grid-row:2;grid-column:2;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.snd .meta b{font-weight:600}
+.snd .meta .warn{color:var(--warn)}
+.snd .tools{display:flex;gap:4px;grid-row:2;grid-column:3}
+.snd .tools button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+.empty{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.bar .inner{max-width:760px;margin:0 auto;display:flex;gap:12px;align-items:center}
+.bar .inner .btn{flex:none}
+#status{flex:1;font-size:13px;color:var(--muted)}
+#status.ok{color:var(--ok)} #status.bad{color:var(--bad)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--panel2);padding:1px 5px;border-radius:5px}
+details summary{cursor:pointer;color:var(--muted)}
+details ol{margin:8px 0 0 20px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+@media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Сборщик линий для MTC Informant</h1>
+    <p>Выбери звуки и иконку, и страница соберёт дополнение <code>.mcaddon</code> с новым разделом информатора. Всё происходит в телефоне, файлы никуда не отправляются.</p>
+  </header>
+
+  <section class="card">
+    <h2><span class="step">1</span>Линия</h2>
+    <label class="field"><span>Название линии (так раздел будет называться в информаторе)</span>
+      <input type="text" id="lineName" value="Каховская линия" maxlength="40"></label>
+    <div class="grid2">
+      <label class="field"><span>ID раздела (латиницей, сам подставится)</span>
+        <input type="text" id="lineId" value="kakhovskaya" maxlength="32" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span>Версия дополнения</span>
+        <input type="text" id="version" value="1.0.0" maxlength="12" inputmode="decimal"></label>
+    </div>
+    <p class="muted">Чтобы обновить уже установленное дополнение, оставь тот же ID и подними версию (1.0.0 → 1.0.1).</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span>Иконка линии и пака</h2>
+    <div class="seg" role="group" aria-label="Откуда иконка">
+      <button id="modeBadge" aria-pressed="true">Сделать значок</button>
+      <button id="modeImage" aria-pressed="false">Своя картинка</button>
+    </div>
+    <div id="badgeOpts" class="row">
+      <input type="color" id="badgeColor" value="#2bb4a8" aria-label="Цвет линии">
+      <input type="text" id="badgeText" value="11А" maxlength="4" style="width:90px" aria-label="Текст на значке">
+      <div class="seg" role="group" aria-label="Форма" style="flex:1;min-width:160px">
+        <button data-shape="circle" aria-pressed="true">Круг</button>
+        <button data-shape="square" aria-pressed="false">Квадрат</button>
+      </div>
+    </div>
+    <div id="imageOpts" class="row" hidden>
+      <label class="btn">🖼 Выбрать картинку<input type="file" id="iconFile" accept="image/*"></label>
+      <span class="muted" id="iconName">PNG или JPG, лучше квадратная</span>
+    </div>
+    <div class="icon-box">
+      <div class="previews">
+        <figure><canvas class="pv" id="pvPack" width="128" height="128"></canvas><figcaption>иконка пака</figcaption></figure>
+        <figure><canvas class="pv" id="pvBtn" width="64" height="64" style="width:48px;height:48px"></canvas><figcaption>кнопка</figcaption></figure>
+      </div>
+      <p class="muted" style="flex:1;min-width:180px">Одна и та же иконка ставится на пак (в списке паков Minecraft) и на кнопку линии в информаторе.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>Звуки</h2>
+    <div class="row">
+      <label class="btn">🎵 Добавить .ogg<input type="file" id="soundFiles" accept=".ogg,audio/ogg" multiple></label>
+      <button class="btn" id="sortBtn" disabled>Сортировать по имени</button>
+    </div>
+    <div class="sounds" id="sounds"><div class="empty">Звуков пока нет. Нажми «Добавить .ogg» и выбери файлы, например «Варшавская 1 путь.ogg».</div></div>
+    <p class="muted">Название кнопки берётся из имени файла, его можно поменять. Порядок кнопок такой же, как в списке (стрелки ↑↓).</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">4</span>Установка</h2>
+    <details open>
+      <summary>Как поставить в игру</summary>
+      <ol>
+        <li>Нужен основной мод <b>MTC Informant 1.1.0</b> или новее.</li>
+        <li>Нажми «Собрать дополнение» внизу и открой скачанный <code>.mcaddon</code>.</li>
+        <li>В настройках мира включи дополнение в наборах поведения и ресурсов (основной мод тоже должен быть включён).</li>
+        <li>Зайди в мир, возьми информатор, нажми «« Назад к разделам», и там появится твоя линия.</li>
+      </ol>
+    </details>
+  </section>
+</main>
+
+<div class="bar"><div class="inner">
+  <span id="status">Добавь звуки, чтобы собрать дополнение.</span>
+  <button class="btn primary" id="buildBtn" disabled>Собрать дополнение</button>
+</div></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+// UUID основного мода MTC Informant (на него ссылается дополнение)
+const BASE_BP_UUID = 'e0b30691-94d9-4f44-9ed8-bc69173abbd2';
+const BASE_MIN_VERSION = [1, 1, 0];
+
+// ---------- Транслит для ID и имён файлов ----------
+const TR = {а:'a',б:'b',в:'v',г:'g',ґ:'g',д:'d',е:'e',ё:'e',є:'ye',ж:'zh',з:'z',и:'i',і:'i',ї:'yi',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+function slug(s, max = 40) {
+  const t = [...s.toLowerCase()].map((c) => (c in TR ? TR[c] : c)).join('');
+  return t.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
+}
+
+// ---------- Состояние ----------
+const state = { iconMode: 'badge', shape: 'circle', iconImage: null, sounds: [] };
+let lineIdTouched = false;
+
+$('lineName').addEventListener('input', () => { if (!lineIdTouched) $('lineId').value = slug($('lineName').value, 32); validate(); });
+$('lineId').addEventListener('input', () => { lineIdTouched = true; validate(); });
+$('version').addEventListener('input', validate);
+
+// ---------- Иконка ----------
+function setMode(m) {
+  state.iconMode = m;
+  $('modeBadge').setAttribute('aria-pressed', String(m === 'badge'));
+  $('modeImage').setAttribute('aria-pressed', String(m === 'image'));
+  $('badgeOpts').hidden = m !== 'badge';
+  $('imageOpts').hidden = m !== 'image';
+  drawIcon();
+}
+$('modeBadge').addEventListener('click', () => setMode('badge'));
+$('modeImage').addEventListener('click', () => setMode('image'));
+document.querySelectorAll('[data-shape]').forEach((b) => b.addEventListener('click', () => {
+  state.shape = b.dataset.shape;
+  document.querySelectorAll('[data-shape]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  drawIcon();
+}));
+$('badgeColor').addEventListener('input', drawIcon);
+$('badgeText').addEventListener('input', drawIcon);
+$('iconFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  const img = new Image();
+  img.src = url;
+  try { await img.decode(); state.iconImage = img; $('iconName').textContent = f.name; }
+  catch { $('iconName').textContent = 'Не получилось открыть картинку'; }
+  drawIcon();
+});
+
+// Рисует иконку нужного размера в canvas
+function paintIcon(cv) {
+  const s = cv.width, ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, s, s);
+  if (state.iconMode === 'image') {
+    const img = state.iconImage;
+    if (!img) return;
+    const k = Math.max(s / img.naturalWidth, s / img.naturalHeight); // заполнить квадрат
+    const w = img.naturalWidth * k, h = img.naturalHeight * k;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, (s - w) / 2, (s - h) / 2, w, h);
+    return;
+  }
+  const color = $('badgeColor').value, text = $('badgeText').value.trim();
+  ctx.fillStyle = color;
+  const pad = s * 0.04;
+  if (state.shape === 'circle') { ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - pad, 0, Math.PI * 2); ctx.fill(); }
+  else { const r = s * 0.16; ctx.beginPath(); ctx.roundRect(pad, pad, s - 2 * pad, s - 2 * pad, r); ctx.fill(); }
+  if (text) {
+    // белый или тёмный текст — что лучше читается на цвете
+    const n = parseInt(color.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    ctx.fillStyle = lum > 0.62 ? '#14161c' : '#ffffff';
+    let fs = s * (text.length <= 2 ? 0.5 : text.length === 3 ? 0.4 : 0.32);
+    ctx.font = `800 ${fs}px -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, s / 2, s / 2 + fs * 0.04);
+  }
+}
+function drawIcon() { paintIcon($('pvPack')); paintIcon($('pvBtn')); validate(); }
+
+// ---------- Звуки ----------
+let audioCtx = null;
+async function inspect(item) {
+  // длительность и моно/стерео — без отправки куда-либо
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await audioCtx.decodeAudioData((await item.file.arrayBuffer()).slice(0));
+    item.duration = buf.duration; item.channels = buf.numberOfChannels;
+  } catch { item.broken = true; }
+  renderSounds();
+}
+
+$('soundFiles').addEventListener('change', (e) => {
+  for (const f of e.target.files) {
+    if (!/\.ogg$/i.test(f.name)) continue;
+    if (state.sounds.some((s) => s.file.name === f.name && s.file.size === f.size)) continue;
+    const item = { file: f, name: f.name.replace(/\.ogg$/i, '').trim().slice(0, 48) };
+    state.sounds.push(item);
+    inspect(item);
+  }
+  e.target.value = '';
+  renderSounds();
+});
+$('sortBtn').addEventListener('click', () => {
+  state.sounds.sort((a, b) => a.name.localeCompare(b.name, 'ru', { numeric: true }));
+  renderSounds();
+});
+
+let playing = null;
+function renderSounds() {
+  const box = $('sounds');
+  box.innerHTML = '';
+  if (!state.sounds.length) {
+    box.innerHTML = '<div class="empty">Звуков пока нет. Нажми «Добавить .ogg» и выбери файлы, например «Варшавская 1 путь.ogg».</div>';
+  }
+  state.sounds.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'snd';
+    const play = document.createElement('button');
+    play.className = 'play';
+    play.textContent = playing && playing.item === item ? '■' : '▶';
+    play.setAttribute('aria-label', 'Прослушать');
+    play.addEventListener('click', () => togglePlay(item));
+    const name = document.createElement('input');
+    name.type = 'text'; name.value = item.name; name.maxLength = 48;
+    name.setAttribute('aria-label', 'Название кнопки');
+    name.addEventListener('input', () => { item.name = name.value; validate(); });
+    const tools = document.createElement('div');
+    tools.className = 'tools';
+    const mk = (t, label, fn, dis) => { const b = document.createElement('button'); b.textContent = t; b.setAttribute('aria-label', label); b.disabled = !!dis; b.addEventListener('click', fn); return b; };
+    tools.append(
+      mk('↑', 'Выше', () => { [state.sounds[i - 1], state.sounds[i]] = [state.sounds[i], state.sounds[i - 1]]; renderSounds(); }, i === 0),
+      mk('↓', 'Ниже', () => { [state.sounds[i + 1], state.sounds[i]] = [state.sounds[i], state.sounds[i + 1]]; renderSounds(); }, i === state.sounds.length - 1),
+      mk('✕', 'Убрать', () => { if (playing && playing.item === item) togglePlay(item); state.sounds.splice(i, 1); renderSounds(); }),
+    );
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const kb = (item.file.size / 1024).toFixed(0) + ' КБ';
+    if (item.broken) meta.innerHTML = `<span class="warn">⚠ браузер не смог прочитать файл — проверь, что это настоящий .ogg</span>`;
+    else if (item.duration === undefined) meta.textContent = `${kb} · проверяю…`;
+    else {
+      const ch = item.channels > 1 ? '<span class="warn">стерео — в вагоне будет звучать «в голове», лучше моно</span>' : 'моно';
+      meta.innerHTML = `${kb} · <b>${item.duration.toFixed(1)} с</b> · ${ch}`;
+    }
+    row.append(play, name, tools, meta);
+    box.appendChild(row);
+  });
+  $('sortBtn').disabled = state.sounds.length < 2;
+  validate();
+}
+
+function togglePlay(item) {
+  if (playing) { playing.audio.pause(); URL.revokeObjectURL(playing.audio.src); const was = playing.item; playing = null; if (was === item) { renderSounds(); return; } }
+  const audio = new Audio(URL.createObjectURL(item.file));
+  audio.addEventListener('ended', () => { if (playing && playing.audio === audio) { playing = null; renderSounds(); } });
+  audio.play().catch(() => {});
+  playing = { item, audio };
+  renderSounds();
+}
+
+// ---------- Проверка ----------
+function versionArr() {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec($('version').value.trim());
+  return m ? [+m[1], +m[2], +m[3]] : null;
+}
+function validate() {
+  const st = $('status');
+  let msg = '', bad = false;
+  const id = $('lineId').value.trim();
+  if (!$('lineName').value.trim()) { msg = 'Впиши название линии.'; bad = true; }
+  else if (!/^[a-z0-9_]{1,32}$/.test(id)) { msg = 'ID раздела: только маленькие латинские буквы, цифры и _.'; bad = true; }
+  else if (!versionArr()) { msg = 'Версия должна быть вида 1.0.0'; bad = true; }
+  else if (state.iconMode === 'image' && !state.iconImage) { msg = 'Выбери картинку для иконки или сделай значок.'; bad = true; }
+  else if (!state.sounds.length) { msg = 'Добавь звуки, чтобы собрать дополнение.'; bad = true; }
+  else if (state.sounds.some((s) => !s.name.trim())) { msg = 'У каждого звука должно быть название.'; bad = true; }
+  else msg = `Готово к сборке: ${state.sounds.length} звук(ов).`;
+  st.textContent = msg;
+  st.className = bad ? '' : 'ok';
+  $('buildBtn').disabled = bad;
+  return !bad;
+}
+
+// ---------- Детерминированный UUID (одинаковый ID линии → тот же пак при обновлении) ----------
+function hash128(str) {
+  let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+  for (let i = 0; i < str.length; i++) {
+    const k = str.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067); h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213); h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067); h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213); h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  h1 ^= h2 ^ h3 ^ h4; h2 ^= h1; h3 ^= h1; h4 ^= h1;
+  return [h1, h2, h3, h4].map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+function uuidFor(seed) {
+  const h = hash128('mtcinformant-addon:' + seed).split('');
+  h[12] = '4'; h[16] = '89ab'[parseInt(h[16], 16) & 3];
+  const s = h.join('');
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20, 32)}`;
+}
+
+// ---------- ZIP (без сжатия: .ogg и .png уже сжаты) ----------
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.path), data = f.data, crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0x21, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, 0, true); ch.setUint16(14, 0x21, true); ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const csize = central.reduce((s, p) => s + p.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+
+const canvasPng = (size) => new Promise((res) => { const c = document.createElement('canvas'); c.width = c.height = size; paintIcon(c); c.toBlob(async (b) => res(new Uint8Array(await b.arrayBuffer())), 'image/png'); });
+const json = (o) => new TextEncoder().encode(JSON.stringify(o, null, 2));
+const text = (s) => new TextEncoder().encode(s);
+
+// Скрипт дополнения: при загрузке мира сообщает основному моду свой раздел и звуки
+function addonScript(section, sounds) {
+  return `// Дополнение для MTC Informant: ${section.name.replace(/[\r\n]/g, ' ')}
+// Собрано сборщиком линий MTC Informant
+import { system } from '@minecraft/server';
+
+const SECTION = ${JSON.stringify(section)};
+const SOUNDS = ${JSON.stringify(sounds, null, 2)};
+
+function send(id, data) {
+  try { system.sendScriptEvent(id, JSON.stringify(data)); } catch (e) { console.warn('[MTC Informant addon] ' + e); }
+}
+function announce() {
+  send('mtcinformant:add_section', SECTION);
+  for (const s of SOUNDS) send('mtcinformant:add_sound', { section: SECTION.id, id: s.id, name: s.name });
+}
+// основной мод просит повторить — повторяем
+system.afterEvents.scriptEventReceive.subscribe((ev) => {
+  if (ev.id === 'mtcinformant:request') announce();
+}, { namespaces: ['mtcinformant'] });
+system.runTimeout(announce, 5);
+`;
+}
+
+$('buildBtn').addEventListener('click', async () => {
+  if (!validate()) return;
+  const btn = $('buildBtn');
+  btn.disabled = true; $('status').textContent = 'Собираю…'; $('status').className = '';
+  try {
+    const lineName = $('lineName').value.trim();
+    const id = $('lineId').value.trim();
+    const ver = versionArr();
+    const BP = `MTCI_${id}_BP`, RP = `MTCI_${id}_RP`;
+    const bpUuid = uuidFor(id + ':bp'), rpUuid = uuidFor(id + ':rp');
+    const iconPath = `textures/mtcinformant_addons/${id}/icon`;
+    const desc = `Дополнение к MTC Informant: ${lineName} / MTC Informant add-on: ${lineName}`;
+
+    // ID звуков: mtcinformant:<линия>.<имя латиницей>, без повторов
+    const used = new Set();
+    const sounds = state.sounds.map((s) => {
+      let base = slug(s.name, 40), k = base, n = 2;
+      while (used.has(k)) k = `${base}_${n++}`;
+      used.add(k);
+      return { item: s, key: k, id: `mtcinformant:${id}.${k}`, name: s.name.trim() };
+    });
+
+    const packIcon = await canvasPng(128);
+    const btnIcon = await canvasPng(64);
+    const defs = {};
+    for (const s of sounds) {
+      defs[s.id] = { category: 'neutral', min_distance: 4.0, max_distance: 48.0, sounds: [{ name: `sounds/mtcinformant_addons/${id}/${s.key}`, volume: 1.0 }] };
+    }
+    const files = [
+      { path: `${BP}/manifest.json`, data: json({
+        format_version: 2,
+        header: { name: `MTC Informant: ${lineName}`, description: desc, uuid: bpUuid, version: ver, min_engine_version: [1, 26, 0] },
+        modules: [{ type: 'script', language: 'javascript', uuid: uuidFor(id + ':script'), version: ver, entry: 'scripts/main.js' }],
+        dependencies: [
+          { uuid: rpUuid, version: ver },
+          { uuid: BASE_BP_UUID, version: BASE_MIN_VERSION },
+          { module_name: '@minecraft/server', version: '2.4.0' },
+        ],
+      }) },
+      { path: `${BP}/pack_icon.png`, data: packIcon },
+      { path: `${BP}/scripts/main.js`, data: text(addonScript({ id, name: lineName, icon: iconPath }, sounds.map((s) => ({ id: s.id, name: s.name })))) },
+      { path: `${RP}/manifest.json`, data: json({
+        format_version: 2,
+        header: { name: `MTC Informant: ${lineName}`, description: desc, uuid: rpUuid, version: ver, min_engine_version: [1, 26, 0] },
+        modules: [{ type: 'resources', uuid: uuidFor(id + ':res'), version: ver }],
+        dependencies: [{ uuid: bpUuid, version: ver }],
+      }) },
+      { path: `${RP}/pack_icon.png`, data: packIcon },
+      { path: `${RP}/${iconPath}.png`, data: btnIcon },
+      { path: `${RP}/sounds/sound_definitions.json`, data: json({ format_version: '1.20.20', sound_definitions: defs }) },
+    ];
+    for (const s of sounds) files.push({ path: `${RP}/sounds/mtcinformant_addons/${id}/${s.key}.ogg`, data: new Uint8Array(await s.item.file.arrayBuffer()) });
+
+    const blob = makeZip(files);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `MTC_Informant_${id}_${ver.join('.')}.mcaddon`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    $('status').textContent = `Готово: ${a.download} (${(blob.size / 1024).toFixed(0)} КБ). Открой файл, чтобы поставить в Minecraft.`;
+    $('status').className = 'ok';
+  } catch (e) {
+    $('status').textContent = 'Ошибка сборки: ' + (e.message || e);
+    $('status').className = 'bad';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+drawIcon();
+renderSounds();
+</script>
+</body>
+</html>

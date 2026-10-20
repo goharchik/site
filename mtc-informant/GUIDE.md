@@ -1,4 +1,4 @@
-📢 MTC Informant 1.0.0
+📢 MTC Informant 1.1.0
 
 Мод добавит для контроллера MTC информатор.
 Подробный гайд в Telegram: https://t.me/+nmX5AM8xJG5lMTRi
@@ -13,7 +13,7 @@
 
 ━━━━━━━━━━━━━━━
 📦 УСТАНОВКА
-1. Открой файл MTC_Informant_1.0.0.mcaddon — Minecraft сам его импортирует.
+1. Открой файл MTC_Informant_1.1.0.mcaddon — Minecraft сам его импортирует.
 2. В настройках мира включи оба пакета: «MTC Informant» в наборах поведения и в наборах ресурсов.
 3. Зайди в мир.
 
@@ -72,7 +72,7 @@ MTC Informant RP/sounds/mtcinformant/line1/arsenalna.ogg
 • name — название, которое увидят игроки
 
 Шаг 5. Запакуй и обнови
-1. В ОБОИХ manifest.json (в BP и в RP) увеличь версию: "version": [1, 0, 0] → [1, 0, 1]. Это нужно везде, где встречается [1, 0, 0], в том числе в "dependencies".
+1. В ОБОИХ manifest.json (в BP и в RP) увеличь версию: "version": [1, 1, 0] → [1, 1, 1]. Это нужно везде, где встречается [1, 1, 0], в том числе в "dependencies".
 2. Выдели обе папки, запакуй в zip, переименуй в .mcaddon и открой.
 Без увеличения версии игра может оставить старую копию мода.
 
@@ -97,9 +97,19 @@ MTC Informant RP/sounds/mtcinformant/line1/arsenalna.ogg
 Звуки для раздела добавляй по шагам 1–3, потом запакуй по шагу 5.
 
 ━━━━━━━━━━━━━━━
+🚇 ЛИНИЯ ОТДЕЛЬНЫМ ДОПОЛНЕНИЕМ (проще всего)
+Не хочешь лезть в файлы? Открой addon-maker.html (сборщик линий) прямо в браузере телефона:
+1. Впиши название линии, например «Каховская линия».
+2. Выбери иконку: сделай значок (цвет и текст, например 11А) или загрузи свою картинку. Эта иконка будет и у пака, и у кнопки линии.
+3. Добавь свои .ogg. Названия кнопок возьмутся из имён файлов, их можно поменять и расставить по порядку.
+4. Нажми «Собрать дополнение» и открой скачанный .mcaddon.
+5. В мире включи и основной MTC Informant (1.1.0+), и дополнение. Линия появится в списке разделов.
+Чтобы обновить дополнение: тот же ID линии и версия повыше (1.0.0 → 1.0.1).
+
+━━━━━━━━━━━━━━━
 ━━━━━━━━━━━━━━━
 
-📢 MTC Informant 1.0.0 (English)
+📢 MTC Informant 1.1.0 (English)
 
 This mod adds a passenger information system (informant) for the MTC controller.
 Detailed guide on Telegram: https://t.me/+nmX5AM8xJG5lMTRi
@@ -114,7 +124,7 @@ Creator of all ideas: Komarchik (TG: @komarchikoff)
 
 ━━━━━━━━━━━━━━━
 📦 INSTALLATION
-1. Open MTC_Informant_1.0.0.mcaddon — Minecraft imports it automatically.
+1. Open MTC_Informant_1.1.0.mcaddon — Minecraft imports it automatically.
 2. In the world settings, enable "MTC Informant" in both Behavior Packs and Resource Packs.
 3. Enter the world.
 
@@ -173,7 +183,7 @@ Open MTC Informant BP/scripts/config.js, find the section and add a line to its 
 • name — the title players will see
 
 Step 5. Pack and update
-1. In BOTH manifest.json files (BP and RP) raise the version: "version": [1, 0, 0] → [1, 0, 1]. Do it everywhere [1, 0, 0] appears, including "dependencies".
+1. In BOTH manifest.json files (BP and RP) raise the version: "version": [1, 1, 0] → [1, 1, 1]. Do it everywhere [1, 1, 0] appears, including "dependencies".
 2. Select both folders, zip them, rename the zip to .mcaddon and open it.
 Without a new version the game may keep the old copy of the mod.
 
@@ -196,3 +206,13 @@ In MTC Informant BP/scripts/config.js add a block to the SECTIONS list (after th
 • sounds — the sounds of this section (as in step 4)
 
 Add the section's sounds with steps 1–3, then pack it as in step 5.
+
+━━━━━━━━━━━━━━━
+🚇 A LINE AS A SEPARATE ADD-ON (easiest)
+Don't want to edit files? Open addon-maker.html (the line builder) right in your phone's browser:
+1. Enter the line name, e.g. "Kakhovskaya line".
+2. Pick an icon: make a badge (color and text, e.g. 11A) or upload your own picture. The same icon is used for the pack and for the line button.
+3. Add your .ogg files. Button names come from the file names; you can rename and reorder them.
+4. Tap "Build add-on" and open the downloaded .mcaddon.
+5. In the world enable both MTC Informant (1.1.0+) and the add-on. The line appears in the section list.
+To update an add-on: keep the same line ID and raise the version (1.0.0 → 1.0.1).

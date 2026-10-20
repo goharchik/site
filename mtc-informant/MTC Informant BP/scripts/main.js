@@ -1,4 +1,4 @@
-// MTC Informant 1.0.0
+// MTC Informant 1.1.0
 // Автор: нейросеть Claude. Создатель всех идей: Komarchik (TG: @komarchikoff)
 import { world, system, Player } from '@minecraft/server';
 import { ActionFormData, FormCancelationReason } from '@minecraft/server-ui';
@@ -11,6 +11,46 @@ const ICON_BACK = 'textures/mtcinformant/ui/back';
 const ICON_SOUND = 'textures/mtcinformant/ui/sound';
 const ICON_SECTION = 'textures/mtcinformant/ui/section';
 
+// ---------------------------------------------------------------------
+//  Разделы из дополнений (отдельных паков, например «Каховская линия»).
+//  Дополнение при загрузке мира присылает событие mtcinformant:add_section
+//  и mtcinformant:add_sound; мы просим их повторить через mtcinformant:request.
+// ---------------------------------------------------------------------
+const ADDON_SECTIONS = [];
+const allSections = () => [...SECTIONS, ...ADDON_SECTIONS];
+const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+system.afterEvents.scriptEventReceive.subscribe((ev) => {
+  let data;
+  try { data = JSON.parse(ev.message || '{}'); } catch { return; }
+  if (ev.id === 'mtcinformant:add_section') {
+    const id = str(data.id, 64);
+    if (!id) return;
+    let sec = allSections().find((s) => s.id === id);
+    if (!sec) { sec = { id, name: id, sounds: [] }; ADDON_SECTIONS.push(sec); }
+    if (ADDON_SECTIONS.includes(sec)) {
+      sec.name = str(data.name, 64) || sec.name;
+      sec.icon = str(data.icon, 128) || sec.icon;
+    }
+  } else if (ev.id === 'mtcinformant:add_sound') {
+    const sid = str(data.section, 64);
+    const id = str(data.id, 128);
+    if (!sid || !id.startsWith('mtcinformant:')) return;
+    let sec = allSections().find((s) => s.id === sid);
+    if (!sec) { sec = { id: sid, name: sid, sounds: [] }; ADDON_SECTIONS.push(sec); }
+    if (!ADDON_SECTIONS.includes(sec)) return; // встроенные разделы меняются только в config.js
+    const name = str(data.name, 64) || id;
+    const old = sec.sounds.find((s) => s.id === id);
+    if (old) old.name = name;
+    else sec.sounds.push({ id, name });
+  }
+}, { namespaces: ['mtcinformant'] });
+
+// На случай, если дополнение загрузилось раньше нас — просим прислать всё ещё раз
+system.runTimeout(() => {
+  try { system.sendScriptEvent('mtcinformant:request', ''); } catch { /* ничего страшного */ }
+}, 20);
+
 const tr = (key, ...args) => ({ translate: key, with: args.map(String) });
 const lines = (...parts) => ({ rawtext: parts.flatMap((p, i) => (i ? [{ text: '\n' }, p] : [p])) });
 
@@ -22,7 +62,7 @@ world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
 
 function openInformant(player) {
   const saved = player.getDynamicProperty(PROP_SECTION);
-  const section = SECTIONS.find((s) => s.id === saved);
+  const section = allSections().find((s) => s.id === saved);
   if (section) showSection(player, section);
   else showSectionPicker(player);
 }
@@ -39,16 +79,17 @@ async function show(player, form, tries = 3) {
 
 async function showSectionPicker(player) {
   const form = new ActionFormData().title(tr('mtcinformant.ui.title'));
-  if (!SECTIONS.length) {
+  const sections = allSections();
+  if (!sections.length) {
     form.body(tr('mtcinformant.ui.no_sections'));
     await show(player, form);
     return;
   }
   form.body(tr('mtcinformant.ui.choose_section'));
-  for (const s of SECTIONS) form.button(`§l${s.name}§r\n§8${s.sounds.length} ♪`, s.icon || ICON_SECTION);
+  for (const s of sections) form.button(`§l${s.name}§r\n§8${s.sounds.length} ♪`, s.icon || ICON_SECTION);
   const res = await show(player, form);
   if (res.canceled || res.selection === undefined) return;
-  const section = SECTIONS[res.selection];
+  const section = sections[res.selection];
   player.setDynamicProperty(PROP_SECTION, section.id);
   showSection(player, section);
 }
