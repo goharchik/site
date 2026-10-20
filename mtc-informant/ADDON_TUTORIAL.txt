@@ -1,0 +1,611 @@
+КАК СДЕЛАТЬ ДОПОЛНЕНИЕ ДЛЯ MTC INFORMANT
+(свою линию, станции и объявления)
+
+Дополнение — это отдельный пак. В информаторе он добавляет новый раздел (например «Каховская линия») со своими звуками и своей иконкой. Основной мод при этом трогать не нужно.
+
+Есть два способа:
+  СПОСОБ 1 — через сборщик линий (addon-maker.html). Просто и быстро, подходит почти всем.
+  СПОСОБ 2 — вручную, собирая файлы самому. Для тех, кто хочет разобраться, как всё устроено.
+
+Авторы мода: Claude, идеи — Komarchik (TG: @komarchikoff)
+Канал с гайдами и новостями: https://t.me/+nmX5AM8xJG5lMTRi
+
+
+════════════════════════════════
+ЧТО НУЖНО ЗАРАНЕЕ
+════════════════════════════════
+
+1. Minecraft Bedrock 1.26 или новее.
+2. Установленный MTC.
+3. Основной мод MTC Informant версии 1.1.0 или новее. На 1.0.0 дополнения не работают!
+4. Звуки в формате .ogg.
+
+Какими должны быть звуки:
+- Формат .ogg. Если у тебя .mp3 или .wav, переделай в .ogg. На ПК подойдёт Audacity (бесплатная): Файл → Экспорт → Экспорт в OGG. На телефоне можно взять любой конвертер аудио или онлайн-конвертер.
+- Лучше моно, а не стерео. Моно звучит из вагона: подошёл ближе — громче, отошёл — тише. Стерео звучит «в голове», одинаково везде. В Audacity: Дорожки → Сведение → Свести стерео в моно.
+- Тишину в начале и в конце лучше обрезать, иначе объявление будет начинаться с задержкой.
+- Громкость у всех файлов примерно одинаковая. В Audacity: Эффекты → Нормализация.
+
+
+════════════════════════════════
+СПОСОБ 1. ЧЕРЕЗ СБОРЩИК ЛИНИЙ
+════════════════════════════════
+
+Сборщик — это файл addon-maker.html. Он открывается в обычном браузере (Chrome, Яндекс, Firefox) на телефоне или на ПК. Интернет не нужен, твои файлы никуда не отправляются.
+
+ШАГ 1. Открой сборщик
+Скачай addon-maker.html и открой его браузером. На телефоне: файловый менеджер → нажать на файл → «Открыть с помощью» → браузер.
+
+ШАГ 2. Линия
+- «Название линии» — так раздел будет называться в информаторе. Например: Каховская линия.
+- «ID раздела» — подставится сам латиницей (kakhovskaya). Это внутреннее имя линии. Его лучше не менять: по нему игра понимает, что это та же самая линия, когда ты будешь выпускать обновление.
+- «Версия дополнения» — для первого выпуска оставь 1.0.0.
+
+ШАГ 3. Иконка
+Одна и та же иконка ставится на пак (её видно в списке паков Minecraft) и на кнопку линии в информаторе. Вариантов два:
+- «Сделать значок» — выбираешь цвет линии, текст (например 11А или 2) и форму: круг или квадрат.
+- «Своя картинка» — загружаешь PNG или JPG. Лучше квадратную, сборщик сам подгонит размер.
+Справа сразу видно, как будет выглядеть иконка пака и кнопки.
+
+ШАГ 4. Звуки
+- Нажми «Добавить .ogg» и выбери все файлы линии сразу. Можно добавлять и в несколько заходов.
+- Название кнопки берётся из имени файла: «Варшавская 1 путь.ogg» → кнопка «Варшавская 1 путь». Название можно исправить прямо в поле.
+- ▶ — прослушать звук.
+- ↑ и ↓ — поменять порядок. В каком порядке звуки стоят здесь, в таком будут и кнопки в информаторе.
+- ✕ — убрать звук.
+- «Сортировать по имени» — расставить по алфавиту.
+- Под каждым звуком написана длительность и моно это или стерео. Если стерео, появится предупреждение: лучше переделать в моно (смотри «Что нужно заранее»).
+
+ШАГ 5. Сборка
+Нажми «Собрать дополнение» внизу. Скачается файл вида:
+  MTC_Informant_kakhovskaya_1.0.0.mcaddon
+
+ШАГ 6. Установка в игру
+1. Открой скачанный .mcaddon. Minecraft сам его импортирует (на телефоне: нажать на файл → открыть в Minecraft).
+2. Зайди в настройки мира → «Наборы параметров поведения» → включи «MTC Informant» (основной мод) и «MTC Informant: <твоя линия>».
+3. Там же в «Наборах ресурсов» оба пака тоже должны быть включены (обычно включаются сами).
+4. Зайди в мир, возьми информатор, нажми «« Назад к разделам». Твоя линия появится в списке со своей иконкой.
+
+ШАГ 7. Как выпустить обновление линии
+Например, ты добавил новые станции:
+1. Снова открой сборщик и введи ТАКОЕ ЖЕ название и ТОТ ЖЕ ID раздела.
+2. Добавь все звуки линии: и старые, и новые. Сборщик собирает дополнение целиком заново.
+3. Подними версию: 1.0.0 → 1.0.1 (потом 1.0.2 и так далее).
+4. Собери и открой новый .mcaddon. Игра заменит старую версию на новую.
+Если оставить ту же версию, Minecraft может решить, что у тебя уже всё стоит, и не обновить пак.
+
+
+════════════════════════════════
+СПОСОБ 2. ВРУЧНУЮ
+════════════════════════════════
+
+Здесь показано, что лежит внутри дополнения. Так можно собрать его самому или поправить готовое.
+
+Пример ниже — линия с ID kakhovskaya. Везде, где написано kakhovskaya, ставь ID своей линии: только маленькие латинские буквы, цифры и знак _.
+
+────────────────
+2.1. Структура папок
+────────────────
+
+  MTCI_kakhovskaya_BP/                          ← пак поведения
+    manifest.json
+    pack_icon.png                               ← иконка пака, 128×128
+    scripts/
+      main.js                                   ← скрипт, который подключает линию к информатору
+
+  MTCI_kakhovskaya_RP/                          ← пак ресурсов
+    manifest.json
+    pack_icon.png                               ← та же иконка, 128×128
+    textures/mtcinformant_addons/kakhovskaya/
+      icon.png                                  ← иконка кнопки линии, 64×64
+    sounds/
+      sound_definitions.json                    ← список звуков
+      mtcinformant_addons/kakhovskaya/
+        varshavskaya_1_put.ogg
+        kakhovskaya_konechnaya_1_put.ogg
+        ...
+
+Важно: имена .ogg-файлов внутри пака пиши латиницей, без пробелов и заглавных букв. С русскими буквами в путях Minecraft иногда не находит файл. А русские названия кнопок задаются отдельно, в main.js.
+
+────────────────
+2.2. UUID — что это и где взять
+────────────────
+
+У каждого пака в manifest.json есть UUID — уникальный номер вида
+  1a2b3c4d-1234-4abc-9def-0123456789ab
+Для одного дополнения нужно 4 разных UUID:
+  [UUID-BP]       — пак поведения
+  [UUID-SCRIPT]   — модуль скрипта
+  [UUID-RP]       — пак ресурсов
+  [UUID-RES]      — модуль ресурсов
+Сгенерировать их можно на любом сайте-генераторе, если поискать «uuid generator».
+ВНИМАНИЕ: придумай их один раз и больше не меняй. При обновлении линии меняется только версия, а UUID остаются прежними. Новые UUID = игра считает это другим паком.
+
+UUID основного мода MTC Informant (его менять нельзя, он нужен как зависимость):
+  e0b30691-94d9-4f44-9ed8-bc69173abbd2
+
+────────────────
+2.3. MTCI_kakhovskaya_BP/manifest.json
+────────────────
+
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant: Каховская линия",
+    "description": "Дополнение к MTC Informant: Каховская линия",
+    "uuid": "[UUID-BP]",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "[UUID-SCRIPT]",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "uuid": "[UUID-RP]", "version": [1, 0, 0] },
+    { "uuid": "e0b30691-94d9-4f44-9ed8-bc69173abbd2", "version": [1, 1, 0] },
+    { "module_name": "@minecraft/server", "version": "2.4.0" }
+  ]
+}
+
+Что тут что:
+- "version": [1, 0, 0] — версия твоего дополнения. При обновлении поднимай её ВЕЗДЕ: в header, в modules и в зависимости на свой RP.
+- Строка с e0b30691-… — зависимость от основного мода. Версию [1, 1, 0] не трогай: она значит «нужен MTC Informant 1.1.0 или новее».
+
+────────────────
+2.4. MTCI_kakhovskaya_RP/manifest.json
+────────────────
+
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant: Каховская линия",
+    "description": "Дополнение к MTC Informant: Каховская линия",
+    "uuid": "[UUID-RP]",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    { "type": "resources", "uuid": "[UUID-RES]", "version": [1, 0, 0] }
+  ],
+  "dependencies": [
+    { "uuid": "[UUID-BP]", "version": [1, 0, 0] }
+  ]
+}
+
+────────────────
+2.5. MTCI_kakhovskaya_RP/sounds/sound_definitions.json
+────────────────
+
+Здесь каждому звуку дают ID и указывают, где лежит файл.
+
+{
+  "format_version": "1.20.20",
+  "sound_definitions": {
+    "mtcinformant:kakhovskaya.varshavskaya_1_put": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        { "name": "sounds/mtcinformant_addons/kakhovskaya/varshavskaya_1_put", "volume": 1.0 }
+      ]
+    },
+    "mtcinformant:kakhovskaya.kakhovskaya_konechnaya_1_put": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        { "name": "sounds/mtcinformant_addons/kakhovskaya/kakhovskaya_konechnaya_1_put", "volume": 1.0 }
+      ]
+    }
+  }
+}
+
+Правила:
+- ID звука ВСЕГДА начинается с mtcinformant: — иначе информатор его не примет. Удобно писать так: mtcinformant:<ID линии>.<имя файла>.
+- "name" — путь к файлу БЕЗ .ogg на конце.
+- "max_distance" — дальше этого расстояния (в блоках) звук не слышно.
+- "min_distance" — ближе этого расстояния звук играет на полной громкости.
+- "volume" — громкость: 1.0 обычная, 0.5 тише, 2.0 громче.
+- Между блоками звуков ставится запятая, после последнего — нет. Ошибка в одной запятой ломает весь файл: проверяй его на любом сайте-валидаторе, если поискать «JSON validator».
+
+────────────────
+2.6. MTCI_kakhovskaya_BP/scripts/main.js
+────────────────
+
+Этот скрипт при загрузке мира сообщает информатору: «вот моя линия, вот её звуки». Скопируй его целиком и поменяй только верхнюю часть (SECTION и SOUNDS).
+
+import { system } from '@minecraft/server';
+
+const SECTION = {
+  id: 'kakhovskaya',
+  name: 'Каховская линия',
+  icon: 'textures/mtcinformant_addons/kakhovskaya/icon'
+};
+
+const SOUNDS = [
+  { id: 'mtcinformant:kakhovskaya.varshavskaya_1_put', name: 'Варшавская 1 путь' },
+  { id: 'mtcinformant:kakhovskaya.kakhovskaya_konechnaya_1_put', name: 'Каховская конечная 1 путь' },
+];
+
+function send(id, data) {
+  try { system.sendScriptEvent(id, JSON.stringify(data)); } catch (e) { console.warn('[MTC Informant addon] ' + e); }
+}
+function announce() {
+  send('mtcinformant:add_section', SECTION);
+  for (const s of SOUNDS) send('mtcinformant:add_sound', { section: SECTION.id, id: s.id, name: s.name });
+}
+system.afterEvents.scriptEventReceive.subscribe((ev) => {
+  if (ev.id === 'mtcinformant:request') announce();
+}, { namespaces: ['mtcinformant'] });
+system.runTimeout(announce, 5);
+
+Что менять:
+- SECTION.id — ID линии (как в именах папок).
+- SECTION.name — название линии, которое видят игроки. Тут можно по-русски.
+- SECTION.icon — путь к иконке кнопки БЕЗ .png.
+- SOUNDS — список кнопок по порядку. id — точно такой же, как в sound_definitions.json. name — надпись на кнопке, можно по-русски.
+- Кавычки в скрипте — одинарные ' '. Если в названии есть апостроф, поставь перед ним обратную косую черту: 'Дарниця \'А\''.
+
+Нижнюю часть (от function send и до конца) не меняй.
+
+────────────────
+2.7. Иконки
+────────────────
+
+- pack_icon.png — квадрат 128×128 (можно 256×256), кладётся в обе папки: BP и RP.
+- textures/mtcinformant_addons/kakhovskaya/icon.png — квадрат 64×64, это иконка кнопки линии.
+Можно взять одну и ту же картинку, просто разного размера.
+
+────────────────
+2.8. Как упаковать
+────────────────
+
+1. Выдели ОБЕ папки (MTCI_kakhovskaya_BP и MTCI_kakhovskaya_RP) и упакуй их в zip. Внутри архива должны лежать сразу эти две папки, а не ещё одна папка вокруг них.
+2. Переименуй .zip в .mcaddon.
+3. Открой файл, и Minecraft его импортирует.
+На телефоне удобно делать это в ZArchiver: выделить две папки → «Сжать» → формат zip → потом переименовать.
+
+
+════════════════════════════════
+ЕСЛИ ЧТО-ТО НЕ РАБОТАЕТ
+════════════════════════════════
+
+Линия не появилась в списке разделов
+- Основной MTC Informant должен быть версии 1.1.0 или новее.
+- В мире должны быть включены ОБА пака: основной мод и дополнение.
+- Перезайди в мир: линия подключается при загрузке.
+
+Minecraft пишет, что не хватает зависимостей
+- Не установлен основной MTC Informant 1.1.0+ или он выключен в мире.
+
+Кнопка есть, но звук не играет
+- ID в main.js и в sound_definitions.json должны совпадать до буквы.
+- В "name" путь без .ogg, а сам файл действительно лежит по этому пути.
+- Файл именно .ogg, а не переименованный .mp3.
+- В sound_definitions.json нет ошибки (проверь в JSON validator).
+
+Пишет «Рядом нет вагона MTC»
+- Подойди к составу ближе, до 15 блоков. Под сообщением показаны ID сущностей рядом. Если вагона среди них нет или у него другой ID, смотри раздел про TRAIN_NAMESPACES в основном гайде.
+
+Звук слышно одинаково везде
+- Файл в стерео. Переделай в моно.
+
+Обновил дополнение, а в игре старая версия
+- Подними версию (1.0.0 → 1.0.1) в обоих manifest.json, а UUID оставь прежними.
+
+Две линии мешают друг другу
+- У каждой линии должен быть свой ID и свои UUID. Если собираешь в сборщике, разные ID линий дадут разные UUID сами.
+
+
+════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════
+
+HOW TO MAKE AN ADD-ON FOR MTC INFORMANT
+(your own line, stations and announcements)
+
+An add-on is a separate pack. It adds a new section to the informant (for example "Kakhovskaya line") with its own sounds and its own icon. You don't need to touch the main mod.
+
+There are two ways:
+  WAY 1 — with the line builder (addon-maker.html). Quick and easy, works for almost everyone.
+  WAY 2 — by hand, putting the files together yourself. For those who want to understand how it works.
+
+Mod authors: Claude, ideas — Komarchik (TG: @komarchikoff)
+Channel with guides and news: https://t.me/+nmX5AM8xJG5lMTRi
+
+
+════════════════════════════════
+WHAT YOU NEED FIRST
+════════════════════════════════
+
+1. Minecraft Bedrock 1.26 or newer.
+2. MTC installed.
+3. The main MTC Informant mod, version 1.1.0 or newer. Add-ons do NOT work with 1.0.0!
+4. Sounds in .ogg format.
+
+What the sounds should be like:
+- .ogg format. If you have .mp3 or .wav, convert them to .ogg. On PC, Audacity (free) works: File → Export → Export as OGG. On a phone, any audio converter app or online converter will do.
+- Mono is better than stereo. Mono sounds come from the car: closer is louder, farther is quieter. Stereo plays "inside your head", the same everywhere. In Audacity: Tracks → Mix → Mix Stereo Down to Mono.
+- Trim silence at the start and end, otherwise the announcement starts with a delay.
+- Keep all files at roughly the same volume. In Audacity: Effect → Normalize.
+
+
+════════════════════════════════
+WAY 1. WITH THE LINE BUILDER
+════════════════════════════════
+
+The builder is the file addon-maker.html (its interface is in Russian, button names below are translated). It opens in a normal browser (Chrome, Firefox, etc.) on a phone or PC. No internet needed, your files are not sent anywhere.
+
+STEP 1. Open the builder
+Download addon-maker.html and open it in a browser. On a phone: file manager → tap the file → "Open with" → browser.
+
+STEP 2. The line
+- "Line name" — the section title in the informant. For example: Kakhovskaya line.
+- "Section ID" — filled in automatically in Latin letters (kakhovskaya). It is the line's internal name. Better not to change it: the game uses it to know it is the same line when you release an update.
+- "Add-on version" — leave 1.0.0 for the first release.
+
+STEP 3. The icon
+The same icon goes on the pack (shown in Minecraft's pack list) and on the line button in the informant. Two options:
+- "Make a badge" — choose the line color, the text (e.g. 11A or 2) and the shape: circle or square.
+- "Your own picture" — upload a PNG or JPG. Square is best, the builder fits the size itself.
+The preview shows how the pack icon and the button will look.
+
+STEP 4. Sounds
+- Tap "Add .ogg" and select all files of the line at once. You can also add them in several goes.
+- The button name comes from the file name: "Varshavskaya 1 put.ogg" → button "Varshavskaya 1 put". You can edit the name right in the field.
+- ▶ — listen to the sound.
+- ↑ and ↓ — change the order. The order here is the order of buttons in the informant.
+- ✕ — remove the sound.
+- "Sort by name" — put them in alphabetical order.
+- Under each sound you see its length and whether it is mono or stereo. If it is stereo, you get a warning: better convert it to mono (see "What you need first").
+
+STEP 5. Build
+Tap "Build add-on" at the bottom. A file like this downloads:
+  MTC_Informant_kakhovskaya_1.0.0.mcaddon
+
+STEP 6. Install in the game
+1. Open the downloaded .mcaddon. Minecraft imports it automatically (on a phone: tap the file → open in Minecraft).
+2. Go to world settings → "Behavior Packs" → enable "MTC Informant" (the main mod) and "MTC Informant: <your line>".
+3. Both packs must also be enabled in "Resource Packs" (usually this happens automatically).
+4. Enter the world, take the informant, tap "« Back to sections". Your line appears in the list with its icon.
+
+STEP 7. How to release an update of the line
+For example, you added new stations:
+1. Open the builder again and enter the SAME name and the SAME section ID.
+2. Add all sounds of the line: both old and new. The builder rebuilds the whole add-on.
+3. Raise the version: 1.0.0 → 1.0.1 (then 1.0.2 and so on).
+4. Build and open the new .mcaddon. The game replaces the old version.
+If you keep the same version, Minecraft may think you already have it and not update the pack.
+
+
+════════════════════════════════
+WAY 2. BY HAND
+════════════════════════════════
+
+This shows what is inside an add-on, so you can build one yourself or fix a ready one.
+
+The example below is a line with the ID kakhovskaya. Everywhere you see kakhovskaya, put your own line ID: only lowercase Latin letters, digits and _.
+
+────────────────
+2.1. Folder structure
+────────────────
+
+  MTCI_kakhovskaya_BP/                          ← behavior pack
+    manifest.json
+    pack_icon.png                               ← pack icon, 128×128
+    scripts/
+      main.js                                   ← script that connects the line to the informant
+
+  MTCI_kakhovskaya_RP/                          ← resource pack
+    manifest.json
+    pack_icon.png                               ← the same icon, 128×128
+    textures/mtcinformant_addons/kakhovskaya/
+      icon.png                                  ← line button icon, 64×64
+    sounds/
+      sound_definitions.json                    ← list of sounds
+      mtcinformant_addons/kakhovskaya/
+        varshavskaya_1_put.ogg
+        kakhovskaya_konechnaya_1_put.ogg
+        ...
+
+Important: name the .ogg files inside the pack in Latin letters, without spaces or capitals. With Cyrillic letters in paths Minecraft sometimes can't find the file. Button names in any language are set separately, in main.js.
+
+────────────────
+2.2. UUID — what it is and where to get it
+────────────────
+
+Every pack has a UUID in manifest.json — a unique number like
+  1a2b3c4d-1234-4abc-9def-0123456789ab
+One add-on needs 4 different UUIDs:
+  [UUID-BP]       — behavior pack
+  [UUID-SCRIPT]   — script module
+  [UUID-RP]       — resource pack
+  [UUID-RES]      — resources module
+You can generate them on any "uuid generator" website.
+WARNING: make them once and never change them. When you update the line, only the version changes, the UUIDs stay the same. New UUIDs = the game treats it as a different pack.
+
+UUID of the main MTC Informant mod (do not change it, it is needed as a dependency):
+  e0b30691-94d9-4f44-9ed8-bc69173abbd2
+
+────────────────
+2.3. MTCI_kakhovskaya_BP/manifest.json
+────────────────
+
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant: Kakhovskaya line",
+    "description": "MTC Informant add-on: Kakhovskaya line",
+    "uuid": "[UUID-BP]",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "[UUID-SCRIPT]",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "uuid": "[UUID-RP]", "version": [1, 0, 0] },
+    { "uuid": "e0b30691-94d9-4f44-9ed8-bc69173abbd2", "version": [1, 1, 0] },
+    { "module_name": "@minecraft/server", "version": "2.4.0" }
+  ]
+}
+
+What is what:
+- "version": [1, 0, 0] — your add-on version. When updating, raise it EVERYWHERE: in header, in modules and in the dependency on your RP.
+- The e0b30691-… line is the dependency on the main mod. Don't touch its version [1, 1, 0]: it means "MTC Informant 1.1.0 or newer is required".
+
+────────────────
+2.4. MTCI_kakhovskaya_RP/manifest.json
+────────────────
+
+{
+  "format_version": 2,
+  "header": {
+    "name": "MTC Informant: Kakhovskaya line",
+    "description": "MTC Informant add-on: Kakhovskaya line",
+    "uuid": "[UUID-RP]",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    { "type": "resources", "uuid": "[UUID-RES]", "version": [1, 0, 0] }
+  ],
+  "dependencies": [
+    { "uuid": "[UUID-BP]", "version": [1, 0, 0] }
+  ]
+}
+
+────────────────
+2.5. MTCI_kakhovskaya_RP/sounds/sound_definitions.json
+────────────────
+
+Here every sound gets an ID and a path to its file.
+
+{
+  "format_version": "1.20.20",
+  "sound_definitions": {
+    "mtcinformant:kakhovskaya.varshavskaya_1_put": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        { "name": "sounds/mtcinformant_addons/kakhovskaya/varshavskaya_1_put", "volume": 1.0 }
+      ]
+    },
+    "mtcinformant:kakhovskaya.kakhovskaya_konechnaya_1_put": {
+      "category": "neutral",
+      "min_distance": 4.0,
+      "max_distance": 48.0,
+      "sounds": [
+        { "name": "sounds/mtcinformant_addons/kakhovskaya/kakhovskaya_konechnaya_1_put", "volume": 1.0 }
+      ]
+    }
+  }
+}
+
+Rules:
+- A sound ID ALWAYS starts with mtcinformant: — otherwise the informant won't accept it. A handy pattern: mtcinformant:<line ID>.<file name>.
+- "name" — path to the file WITHOUT .ogg at the end.
+- "max_distance" — beyond this distance (in blocks) the sound can't be heard.
+- "min_distance" — closer than this the sound plays at full volume.
+- "volume" — 1.0 normal, 0.5 quieter, 2.0 louder.
+- Put a comma between sound blocks, but not after the last one. One wrong comma breaks the whole file: check it on any "JSON validator" website.
+
+────────────────
+2.6. MTCI_kakhovskaya_BP/scripts/main.js
+────────────────
+
+When the world loads, this script tells the informant: "here is my line, here are its sounds". Copy it whole and change only the top part (SECTION and SOUNDS).
+
+import { system } from '@minecraft/server';
+
+const SECTION = {
+  id: 'kakhovskaya',
+  name: 'Kakhovskaya line',
+  icon: 'textures/mtcinformant_addons/kakhovskaya/icon'
+};
+
+const SOUNDS = [
+  { id: 'mtcinformant:kakhovskaya.varshavskaya_1_put', name: 'Varshavskaya, track 1' },
+  { id: 'mtcinformant:kakhovskaya.kakhovskaya_konechnaya_1_put', name: 'Kakhovskaya terminus, track 1' },
+];
+
+function send(id, data) {
+  try { system.sendScriptEvent(id, JSON.stringify(data)); } catch (e) { console.warn('[MTC Informant addon] ' + e); }
+}
+function announce() {
+  send('mtcinformant:add_section', SECTION);
+  for (const s of SOUNDS) send('mtcinformant:add_sound', { section: SECTION.id, id: s.id, name: s.name });
+}
+system.afterEvents.scriptEventReceive.subscribe((ev) => {
+  if (ev.id === 'mtcinformant:request') announce();
+}, { namespaces: ['mtcinformant'] });
+system.runTimeout(announce, 5);
+
+What to change:
+- SECTION.id — the line ID (same as in the folder names).
+- SECTION.name — the line title players see. Any language is fine here.
+- SECTION.icon — path to the button icon WITHOUT .png.
+- SOUNDS — the list of buttons in order. id — exactly the same as in sound_definitions.json. name — the button label, any language.
+- The script uses single quotes ' '. If a name contains an apostrophe, put a backslash before it: 'Darnytsia \'A\''.
+
+Don't change the bottom part (from function send to the end).
+
+────────────────
+2.7. Icons
+────────────────
+
+- pack_icon.png — a 128×128 square (256×256 also works), placed in both folders: BP and RP.
+- textures/mtcinformant_addons/kakhovskaya/icon.png — a 64×64 square, the line button icon.
+You can use the same picture, just in different sizes.
+
+────────────────
+2.8. How to pack it
+────────────────
+
+1. Select BOTH folders (MTCI_kakhovskaya_BP and MTCI_kakhovskaya_RP) and zip them. The two folders must be at the top of the archive, not inside another folder.
+2. Rename the .zip to .mcaddon.
+3. Open the file and Minecraft imports it.
+On a phone ZArchiver is handy: select both folders → "Compress" → zip format → then rename.
+
+
+════════════════════════════════
+IF SOMETHING DOESN'T WORK
+════════════════════════════════
+
+The line doesn't show up in the section list
+- The main MTC Informant must be version 1.1.0 or newer.
+- BOTH packs must be enabled in the world: the main mod and the add-on.
+- Re-enter the world: the line connects when the world loads.
+
+Minecraft says dependencies are missing
+- The main MTC Informant 1.1.0+ is not installed or is disabled in the world.
+
+The button is there, but no sound plays
+- The ID in main.js and in sound_definitions.json must match letter for letter.
+- "name" has the path without .ogg, and the file really is at that path.
+- The file really is .ogg, not a renamed .mp3.
+- sound_definitions.json has no errors (check it in a JSON validator).
+
+It says "No MTC car nearby"
+- Get closer to the train, within 15 blocks. Below the message you see IDs of nearby entities. If the car is not among them or has a different ID, see the TRAIN_NAMESPACES part of the main guide.
+
+The sound is equally loud everywhere
+- The file is stereo. Convert it to mono.
+
+I updated the add-on, but the game still has the old version
+- Raise the version (1.0.0 → 1.0.1) in both manifest.json files and keep the UUIDs the same.
+
+Two lines interfere with each other
+- Each line needs its own ID and its own UUIDs. In the builder, different line IDs give different UUIDs automatically.
