@@ -1,0 +1,41 @@
+MTC Informant 1.0.0, слив
+
+Сделали информатор для MTC. Берёшь предмет, подходишь к составу, выбираешь объявление, и оно играет прямо в вагоне.
+
+Как это работает:
+- предмет «Информатор MTC» лежит во вкладке «Предметы», рядом с печками;
+- в первый раз выбираешь раздел, дальше он открывается сам;
+- нажимаешь на звук, и он играет в ближайшем к тебе вагоне (до 15 блоков);
+- вверху есть кнопка «Назад», если нужен другой раздел;
+- свои объявления и разделы можно добавлять самому, как это сделать, расписано в гайде.
+
+Нужно: Bedrock 1.26+ и установленный MTC. Эксперименталки включать не надо.
+
+Гайд: https://t.me/+nmX5AM8xJG5lMTRi
+
+Автор: Claude
+Идеи: Komarchik (TG: @komarchikoff)
+
+Версия первая, так что если что-то не работает (например, пишет «Рядом нет вагона MTC»), кидайте скрин в комменты, поправим.
+
+---
+
+MTC Informant 1.0.0 release
+
+We made an informant for MTC. Grab the item, walk up to a train, pick an announcement, and it plays right inside the car.
+
+How it works:
+- the "MTC Informant" item is in the Items tab, next to the furnaces;
+- the first time you pick a section, after that it opens on its own;
+- tap a sound and it plays in the car closest to you (up to 15 blocks);
+- there's a "Back" button at the top if you need another section;
+- you can add your own announcements and sections, the guide explains how.
+
+Requires Bedrock 1.26+ and MTC installed. No experimental toggles needed.
+
+Guide: https://t.me/+nmX5AM8xJG5lMTRi
+
+Author: Claude
+Ideas: Komarchik (TG: @komarchikoff)
+
+This is the first version, so if something doesn't work (for example, it says "No MTC car nearby"), drop a screenshot in the comments and we'll fix it.
