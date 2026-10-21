@@ -13,3 +13,4 @@ mtcinformant.ui.no_sections=§cNo sections. Add them in scripts/config.js (see t
 mtcinformant.msg.no_train=§c[Informant] No MTC car nearby (searching within %s blocks).	#
 mtcinformant.msg.nearby=§7Entities nearby: %s	#
 mtcinformant.msg.playing=§6Informant:§r %s §7—§r %s	#
+mtcinformant.msg.playing_train=§6Informant:§r %s §7—§r %s §8(cars: %s)	#

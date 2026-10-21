@@ -13,3 +13,4 @@ mtcinformant.ui.no_sections=§cРазделов нет. Добавь их в scr
 mtcinformant.msg.no_train=§c[Информатор] Рядом нет вагона MTC (ищу в радиусе %s блоков).	#
 mtcinformant.msg.nearby=§7Рядом есть сущности: %s	#
 mtcinformant.msg.playing=§6Информатор:§r %s §7—§r %s	#
+mtcinformant.msg.playing_train=§6Информатор:§r %s §7—§r %s §8(вагонов: %s)	#

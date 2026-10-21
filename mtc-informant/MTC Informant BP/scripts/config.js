@@ -12,6 +12,37 @@ export const SEARCH_RADIUS = 15;
 // Sound volume in the car (1 = normal).
 export const SOUND_VOLUME = 1;
 
+// Звук во ВСЁМ составе: от ближайшего вагона информатор идёт по сцепке
+// к соседним вагонам и включает звук в каждом. false — только в ближайшем.
+// Sound in the WHOLE train: from the nearest car the informant follows the
+// coupled cars and plays the sound in each one. false — only the nearest car.
+export const WHOLE_TRAIN = true;
+
+// Наибольшее расстояние между центрами двух сцепленных вагонов, в блоках.
+// Если звук включается не во всех вагонах — увеличь. Если цепляет чужой
+// состав, стоящий сзади на том же пути, — уменьши.
+// Max distance between the centres of two coupled cars, in blocks.
+export const COUPLE_DISTANCE = 25;
+
+// Соседний вагон должен стоять вдоль пути, а не на соседнем пути.
+// Допуск в градусах. Если на кривых звук пропадает в части вагонов — увеличь,
+// если цепляет состав на соседнем пути — уменьши.
+// false вместо числа — не проверять направление (только расстояние).
+// The next car must be along the track, not on the next track. Tolerance in degrees.
+// Use false instead of a number to skip the direction check.
+/** @type {number | false} */
+export const COUPLE_MAX_ANGLE = 8;
+
+// Не больше стольких вагонов в одном составе.
+// At most this many cars per train.
+export const MAX_CARS = 20;
+
+// Если у MTC в одном вагоне несколько сущностей (сиденья, тележки),
+// звук не будет повторяться ближе этого расстояния, в блоках.
+// If MTC has several entities per car (seats, bogies), the sound is not
+// repeated closer than this distance, in blocks.
+export const MIN_SOUND_SPACING = 6;
+
 // Как узнать вагон MTC: начало ID сущности (до двоеточия).
 // Если информатор пишет «рядом нет вагона», он покажет ID сущностей рядом:
 // впиши нужный сюда (например "mtc" для сущностей вида mtc:что-то).

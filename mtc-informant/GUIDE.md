@@ -1,4 +1,4 @@
-📢 MTC Informant 1.1.0
+📢 MTC Informant 1.2.0
 
 Мод добавит для контроллера MTC информатор.
 Подробный гайд в Telegram: https://t.me/+nmX5AM8xJG5lMTRi
@@ -13,7 +13,7 @@
 
 ━━━━━━━━━━━━━━━
 📦 УСТАНОВКА
-1. Открой файл MTC_Informant_1.1.0.mcaddon — Minecraft сам его импортирует.
+1. Открой файл MTC_Informant_1.2.0.mcaddon — Minecraft сам его импортирует.
 2. В настройках мира включи оба пакета: «MTC Informant» в наборах поведения и в наборах ресурсов.
 3. Зайди в мир.
 
@@ -23,7 +23,10 @@
 2. Подойди к составу MTC — не дальше 15 блоков.
 3. Нажми предметом (ПКМ, на телефоне — долгое нажатие).
 4. Первый раз выбери раздел информатора. Дальше этот раздел будет открываться сразу.
-5. Нажми на звук — он заиграет в ОДНОМ вагоне, самом близком к тебе.
+5. Нажми на звук — он заиграет во всём составе: информатор находит ближайший к тебе вагон и по сцепке включает звук в каждом вагоне до конца состава.
+   Только в одном вагоне: в scripts/config.js поставь WHOLE_TRAIN = false.
+   Звук не во всех вагонах — увеличь COUPLE_DISTANCE (расстояние между вагонами) или COUPLE_MAX_ANGLE (для крутых кривых).
+   Цепляет чужой поезд — уменьши COUPLE_DISTANCE или COUPLE_MAX_ANGLE.
 6. Чтобы выбрать другой раздел, нажми «« Назад к разделам» в самом верху.
 
 В окне раздела видно название раздела и последний включённый звук.
@@ -72,7 +75,7 @@ MTC Informant RP/sounds/mtcinformant/line1/arsenalna.ogg
 • name — название, которое увидят игроки
 
 Шаг 5. Запакуй и обнови
-1. В ОБОИХ manifest.json (в BP и в RP) увеличь версию: "version": [1, 1, 0] → [1, 1, 1]. Это нужно везде, где встречается [1, 1, 0], в том числе в "dependencies".
+1. В ОБОИХ manifest.json (в BP и в RP) увеличь версию: "version": [1, 2, 0] → [1, 2, 1]. Это нужно везде, где встречается [1, 2, 0], в том числе в "dependencies".
 2. Выдели обе папки, запакуй в zip, переименуй в .mcaddon и открой.
 Без увеличения версии игра может оставить старую копию мода.
 
@@ -109,7 +112,7 @@ MTC Informant RP/sounds/mtcinformant/line1/arsenalna.ogg
 ━━━━━━━━━━━━━━━
 ━━━━━━━━━━━━━━━
 
-📢 MTC Informant 1.1.0 (English)
+📢 MTC Informant 1.2.0 (English)
 
 This mod adds a passenger information system (informant) for the MTC controller.
 Detailed guide on Telegram: https://t.me/+nmX5AM8xJG5lMTRi
@@ -124,7 +127,7 @@ Creator of all ideas: Komarchik (TG: @komarchikoff)
 
 ━━━━━━━━━━━━━━━
 📦 INSTALLATION
-1. Open MTC_Informant_1.1.0.mcaddon — Minecraft imports it automatically.
+1. Open MTC_Informant_1.2.0.mcaddon — Minecraft imports it automatically.
 2. In the world settings, enable "MTC Informant" in both Behavior Packs and Resource Packs.
 3. Enter the world.
 
@@ -134,7 +137,10 @@ Creator of all ideas: Komarchik (TG: @komarchikoff)
 2. Go near an MTC train — no more than 15 blocks away.
 3. Use the item (right click, or long press on mobile).
 4. The first time, choose an informant section. After that, it opens right away.
-5. Tap a sound — it plays in ONE car, the one closest to you.
+5. Tap a sound — it plays in the whole train: the informant finds the car closest to you and, following the coupling, plays the sound in every car to the end of the train.
+   Only one car: set WHOLE_TRAIN = false in scripts/config.js.
+   Not all cars play — raise COUPLE_DISTANCE (distance between cars) or COUPLE_MAX_ANGLE (for sharp curves).
+   It picks up another train — lower COUPLE_DISTANCE or COUPLE_MAX_ANGLE.
 6. To pick another section, tap "« Back to sections" at the very top.
 
 The section screen shows the section name and the last sound you played.
@@ -183,7 +189,7 @@ Open MTC Informant BP/scripts/config.js, find the section and add a line to its 
 • name — the title players will see
 
 Step 5. Pack and update
-1. In BOTH manifest.json files (BP and RP) raise the version: "version": [1, 1, 0] → [1, 1, 1]. Do it everywhere [1, 1, 0] appears, including "dependencies".
+1. In BOTH manifest.json files (BP and RP) raise the version: "version": [1, 2, 0] → [1, 2, 1]. Do it everywhere [1, 2, 0] appears, including "dependencies".
 2. Select both folders, zip them, rename the zip to .mcaddon and open it.
 Without a new version the game may keep the old copy of the mod.
 

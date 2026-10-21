@@ -1,4 +1,4 @@
-# MTC Informant 1.1.0
+# MTC Informant 1.2.0
 
 Аддон-информатор для MTC (Minecraft Bedrock 1.26+).
 Автор: нейросеть Claude. Создатель всех идей: Komarchik (TG: @komarchikoff).

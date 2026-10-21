@@ -1,8 +1,11 @@
-// MTC Informant 1.1.0
+// MTC Informant 1.2.0
 // Автор: нейросеть Claude. Создатель всех идей: Komarchik (TG: @komarchikoff)
 import { world, system, Player } from '@minecraft/server';
 import { ActionFormData, FormCancelationReason } from '@minecraft/server-ui';
-import { SECTIONS, SEARCH_RADIUS, SOUND_VOLUME, TRAIN_NAMESPACES, TRAIN_ENTITY_IDS } from './config.js';
+import {
+  SECTIONS, SEARCH_RADIUS, SOUND_VOLUME, TRAIN_NAMESPACES, TRAIN_ENTITY_IDS,
+  WHOLE_TRAIN, COUPLE_DISTANCE, COUPLE_MAX_ANGLE, MAX_CARS, MIN_SOUND_SPACING,
+} from './config.js';
 
 const ITEM_ID = 'mtcinformant:informant';
 const PROP_SECTION = 'mtcinformant:section'; // выбранный раздел у игрока
@@ -117,9 +120,12 @@ async function showSection(player, section) {
     return;
   }
   const sound = section.sounds[res.selection - 1];
-  if (playInNearestCar(player, sound)) {
+  const cars = playInTrain(player, sound);
+  if (cars > 0) {
     player.setDynamicProperty(PROP_LAST, sound.id);
-    player.onScreenDisplay.setActionBar(tr('mtcinformant.msg.playing', section.name, sound.name));
+    player.onScreenDisplay.setActionBar(cars > 1
+      ? tr('mtcinformant.msg.playing_train', section.name, sound.name, cars)
+      : tr('mtcinformant.msg.playing', section.name, sound.name));
   }
 }
 
@@ -130,8 +136,54 @@ function isTrainCar(entity) {
   return TRAIN_ENTITY_IDS.includes(id) || TRAIN_NAMESPACES.includes(ns);
 }
 
-// Звук играет в одном вагоне — самом близком к игроку (не дальше SEARCH_RADIUS)
-function playInNearestCar(player, sound) {
+const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
+
+// Сцеплены ли вагоны: рядом, на одной высоте и стоят друг за другом вдоль пути.
+// Данные сцепки MTC другим модам недоступны, поэтому судим по расположению.
+function coupled(a, b) {
+  const pa = a.location, pb = b.location;
+  if (Math.abs(pa.y - pb.y) > 3) return false;
+  const dx = pb.x - pa.x, dz = pb.z - pa.z;
+  const len = Math.hypot(dx, dz);
+  if (len > COUPLE_DISTANCE) return false;
+  if (COUPLE_MAX_ANGLE === false || len < 0.5) return true;
+  let ya, yb;
+  try { ya = (a.getRotation().y * Math.PI) / 180; yb = (b.getRotation().y * Math.PI) / 180; } catch { return true; }
+  // Среднее направление двух вагонов (как ось: «вперёд» и «назад» одно и то же).
+  // На кривой линия между центрами вагонов идёт ровно по этому среднему,
+  // а у составов на соседних путях — наискосок.
+  const axis = (yaw) => [Math.cos(2 * yaw), Math.sin(2 * yaw)];
+  const [ax, az] = axis(ya), [bx, bz] = axis(yb);
+  const mean = Math.atan2(az + bz, ax + bx) / 2;
+  const fx = -Math.sin(mean), fz = Math.cos(mean);
+  const cos = Math.abs((fx * dx + fz * dz) / len);
+  return cos >= Math.cos((COUPLE_MAX_ANGLE * Math.PI) / 180);
+}
+
+// Весь состав: от первого вагона по цепочке к соседним
+function collectTrain(first) {
+  const train = [first];
+  const seen = new Set([first.id]);
+  for (let i = 0; i < train.length && train.length < MAX_CARS; i++) {
+    const a = train[i];
+    let near;
+    try { near = a.dimension.getEntities({ location: a.location, maxDistance: COUPLE_DISTANCE }); } catch { near = []; }
+    // сначала ближние — так цепочка идёт по порядку вагонов
+    near.sort((x, y) => dist2(x.location, a.location) - dist2(y.location, a.location));
+    for (const b of near) {
+      if (train.length >= MAX_CARS) break;
+      if (seen.has(b.id) || !b.isValid || !isTrainCar(b) || !coupled(a, b)) continue;
+      seen.add(b.id);
+      train.push(b);
+    }
+  }
+  return train;
+}
+
+// Звук играет в ближайшем к игроку вагоне (не дальше SEARCH_RADIUS),
+// а если WHOLE_TRAIN — ещё и во всех сцепленных с ним вагонах.
+// Возвращает, в скольких вагонах включился звук (0 — вагон не найден).
+function playInTrain(player, sound) {
   const dim = player.dimension;
   const at = player.location;
   let nearby;
@@ -145,7 +197,7 @@ function playInNearestCar(player, sound) {
   for (const e of nearby) {
     if (!e.isValid || !isTrainCar(e)) continue;
     const l = e.location;
-    const d = (l.x - at.x) ** 2 + (l.y - at.y) ** 2 + (l.z - at.z) ** 2;
+    const d = dist2(l, at);
     if (d < bestD) { bestD = d; best = e; }
   }
   if (!best) {
@@ -156,8 +208,17 @@ function playInNearestCar(player, sound) {
     const msg = [tr('mtcinformant.msg.no_train', SEARCH_RADIUS)];
     if (kinds.length) msg.push(tr('mtcinformant.msg.nearby', kinds.join(', ')));
     player.sendMessage(lines(...msg));
-    return false;
+    return 0;
   }
-  dim.playSound(sound.id, best.location, { volume: SOUND_VOLUME });
-  return true;
+  const cars = WHOLE_TRAIN ? collectTrain(best) : [best];
+  // не повторяем звук там, где он уже играет (несколько сущностей в одном вагоне)
+  const spots = [];
+  const minD2 = MIN_SOUND_SPACING * MIN_SOUND_SPACING;
+  for (const car of cars) {
+    const l = car.location;
+    if (spots.some((p) => dist2(p, l) < minD2)) continue;
+    spots.push(l);
+    dim.playSound(sound.id, l, { volume: SOUND_VOLUME });
+  }
+  return spots.length;
 }

@@ -1,6 +1,6 @@
-MTC Informant 1.1.0
+MTC Informant 1.2.0
 
-Информатор для составов MTC. Берёшь предмет «Информатор MTC», выбираешь раздел и объявление, и оно звучит в ближайшем к тебе вагоне (до 15 блоков). Можно добавлять свои звуки, разделы и целые линии отдельными дополнениями.
+Информатор для составов MTC. Берёшь предмет «Информатор MTC», выбираешь раздел и объявление, и оно звучит во всём составе, к которому ты стоишь ближе всего (до 15 блоков). Можно добавлять свои звуки, разделы и целые линии отдельными дополнениями.
 
 Нужно: Minecraft Bedrock 1.26+ и MTC.
 
@@ -10,9 +10,9 @@ MTC Informant 1.1.0
 
 ---
 
-MTC Informant 1.1.0
+MTC Informant 1.2.0
 
-A passenger information system for MTC trains. Take the "MTC Informant" item, pick a section and an announcement, and it plays in the car closest to you (up to 15 blocks). You can add your own sounds, sections and whole lines as separate add-ons.
+A passenger information system for MTC trains. Take the "MTC Informant" item, pick a section and an announcement, and it plays across the whole train closest to you (up to 15 blocks). You can add your own sounds, sections and whole lines as separate add-ons.
 
 Requires Minecraft Bedrock 1.26+ and MTC.
 
