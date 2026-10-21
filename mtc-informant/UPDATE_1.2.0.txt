@@ -1,0 +1,39 @@
+MTC Informant 1.2.0, обновление
+
+Что нового:
+- Объявление теперь звучит во всём составе, а не в одном вагоне. Информатор находит ближайший к тебе вагон и по цепочке включает звук в каждом вагоне до конца состава. Поезд на соседнем пути не цепляется.
+- Линии можно делать отдельными дополнениями: свой раздел со своими звуками и иконкой, основной мод трогать не нужно.
+- Появился сборщик линий (addon-maker.html). Открываешь в браузере, выбираешь .ogg и иконку, жмёшь «Собрать дополнение» и получаешь готовый .mcaddon.
+
+Если звук играет не во всех вагонах или цепляет чужой поезд, это настраивается в scripts/config.js (COUPLE_DISTANCE, COUPLE_MAX_ANGLE). Только в одном вагоне, как раньше: WHOLE_TRAIN = false. Всё расписано в гайде.
+
+Обновление: просто открой новый .mcaddon. Дополнения-линии работают с версии 1.1.0 и новее.
+
+Нужно: Minecraft Bedrock 1.26+ и MTC.
+
+Автор: Claude
+Идеи: Komarchik (TG: @komarchikoff)
+Гайд и новости: https://t.me/+nmX5AM8xJG5lMTRi
+
+Нашли баг? Кидайте скрин в комменты.
+
+---
+
+MTC Informant 1.2.0 update
+
+What's new:
+- Announcements now play across the whole train, not in a single car. The informant finds the car closest to you and plays the sound in every car down the chain to the end of the train. Trains on the next track are not picked up.
+- Lines can be made as separate add-ons: your own section with its own sounds and icon, without touching the main mod.
+- New line builder (addon-maker.html). Open it in a browser, pick your .ogg files and an icon, tap "Build add-on" and you get a ready .mcaddon.
+
+If the sound doesn't play in every car or picks up another train, you can tune it in scripts/config.js (COUPLE_DISTANCE, COUPLE_MAX_ANGLE). To play in one car only, like before: WHOLE_TRAIN = false. It's all explained in the guide.
+
+To update, just open the new .mcaddon. Line add-ons need version 1.1.0 or newer.
+
+Requires Minecraft Bedrock 1.26+ and MTC.
+
+Author: Claude
+Ideas: Komarchik (TG: @komarchikoff)
+Guide and news: https://t.me/+nmX5AM8xJG5lMTRi
+
+Found a bug? Drop a screenshot in the comments.
